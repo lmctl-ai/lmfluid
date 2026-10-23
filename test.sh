@@ -42,8 +42,10 @@ cmp -s "$WORK/schema.json" schema/lmfluid.dsl.json || fail "embedded schema diff
 ok "--dsl-schema --json prints byte-identical embedded schema bytes"
 diff -u <("$LMSCRIPT" --dsl-signatures schema/lmfluid.dsl.json) <("$HOST" --dsl-signatures) || fail "host/compiler signatures differ"
 ok "host registry matches compiler signatures"
-"$HOST" --notices | grep -q "MFEM" || fail "--notices missing third-party text"
-ok "--notices prints the third-party license texts"
+"$HOST" --notices >"$WORK/notices.txt" || fail "--notices"
+grep -q "MFEM" "$WORK/notices.txt" || fail "--notices missing third-party text"
+cmp -s "$WORK/notices.txt" THIRD_PARTY_NOTICES || fail "--notices differs from THIRD_PARTY_NOTICES"
+ok "--notices prints THIRD_PARTY_NOTICES byte for byte"
 
 case "$UNAME_S" in
   Linux) if ldd "$HOST" >/dev/null 2>&1; then fail "executable is dynamically linked"; fi; ok "executable is fully static (no dynamic loader)";;
@@ -124,7 +126,11 @@ printf 'garbage\n' >"$WORK/garbage.mesh"
 expect_error mesh_format "let m = fluid.load_mesh(\"$WORK/garbage.mesh\");" "MFEM mesh v1.0"
 expect_error no_convergence 'let f = fluid.poisson(fluid.rect(16,16,1.0,1.0),1).source("1").tol(0.000000000001, 1).solve();' "did not converge"
 [ "$(printf '%s\n' "$out" | wc -l | tr -d ' ')" = 1 ] || fail "solver diagnostics leaked into the JSON stdout: $out"
-ok "errors stop with exit 3 and clear messages (18 cases)"
+# Expression strings: deep nesting used to overflow the parser's stack (SIGSEGV).
+deep="$(printf '(%.0s' $(seq 300))1$(printf ')%.0s' $(seq 300))"
+expect_error deep_expression "let x = fluid.eval(\"$deep\");" "nested too deeply"
+expect_error huge_number 'let x = fluid.eval("1e400");' "out of range"
+ok "errors stop with exit 3 and clear messages (20 cases)"
 
 # Dry run loads/verifies bytecode without executing numerical work or writing CSV.
 rm -f build/examples/poisson.csv
