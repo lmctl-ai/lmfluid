@@ -1,3 +1,4 @@
+mkdir("build/examples");
 p = _dsl_ cli="lmfluid" install="github:lmctl-ai/lmfluid@latest";
 let mesh = fluid.rect(24, 24, 1.0, 1.0);
 let field = fluid.poisson(mesh, 2).source("-4.0").dirichlet(0, "x*x + y*y").solve();
@@ -5,3 +6,9 @@ fluid.assert_close(field.l2_error("x*x + y*y"), 0.0, 0.005);
 field.sample(41, 41).save_csv("build/examples/poisson.csv");
 end _dsl_
 savedsl(p, "build/poisson.dslb");
+r = system ${dsl_cli(p)} --dsl build/poisson.dslb;
+assert(r.code == 0);
+r = system bash examples/render-one.sh poisson;
+println(r.stdout);
+if (r.code!=0) { println(r.stderr); }
+assert(r.code == 0);

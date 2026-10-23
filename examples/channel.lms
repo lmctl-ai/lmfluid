@@ -1,3 +1,4 @@
+mkdir("build/examples");
 p = _dsl_ cli="lmfluid" install="github:lmctl-ai/lmfluid@latest";
 let flow = fluid.channel(48, 12, 0.1, 0.00001).run(3000);
 fluid.assert_true(flow.mass() > 0.0);
@@ -6,3 +7,9 @@ fluid.assert_close(flow.velocity(24, 6, 1), 0.0, 0.000001);
 flow.sample().save_csv("build/examples/channel.csv");
 end _dsl_
 savedsl(p, "build/channel.dslb");
+r = system ${dsl_cli(p)} --dsl build/channel.dslb;
+assert(r.code == 0);
+r = system bash examples/render-one.sh channel;
+println(r.stdout);
+if (r.code!=0) { println(r.stderr); }
+assert(r.code == 0);

@@ -1,0 +1,11 @@
+mkdir("build/examples");
+p = _dsl_ cli="lmfluid" install="github:lmctl-ai/lmfluid@latest";
+let v=fluid.cavity(32,32,0.1,0.03).run(6000);fluid.assert_true(v.velocity(16,16,0)<0.0);fluid.assert_true(v.kinetic_energy()>0.0);v.sample().save_csv("build/examples/cavity_vortex.csv");
+end _dsl_
+savedsl(p, "build/cavity_vortex.dslb");
+r = system ${dsl_cli(p)} --dsl build/cavity_vortex.dslb;
+assert(r.code == 0);
+r = system bash examples/render-one.sh cavity_vortex;
+println(r.stdout);
+if (r.code!=0) { println(r.stderr); }
+assert(r.code == 0);

@@ -1,0 +1,11 @@
+mkdir("build/examples");
+p = _dsl_ cli="lmfluid" install="github:lmctl-ai/lmfluid@latest";
+let p=fluid.heat(fluid.rect(16,16,1.0,1.0),2).initial("sin(pi*x)*sin(pi*y)+0.3*sin(3*pi*x)*sin(pi*y)");let a=p.evolve(0.0,0.0002);let b=p.evolve(0.02,0.0002);fluid.assert_close(b.value(0.5,0.5),fluid.eval("exp(-2*pi*pi*0.02)-0.3*exp(-10*pi*pi*0.02)"),0.003);a.sample(41,41).save_csv("build/examples/heated_plate_initial.csv");b.sample(41,41).save_csv("build/examples/heated_plate_final.csv");
+end _dsl_
+savedsl(p, "build/heated_plate.dslb");
+r = system ${dsl_cli(p)} --dsl build/heated_plate.dslb;
+assert(r.code == 0);
+r = system bash examples/render-one.sh heated_plate;
+println(r.stdout);
+if (r.code!=0) { println(r.stderr); }
+assert(r.code == 0);

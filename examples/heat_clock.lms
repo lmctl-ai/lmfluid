@@ -1,0 +1,11 @@
+mkdir("build/examples");
+p = _dsl_ cli="lmfluid" install="github:lmctl-ai/lmfluid@latest";
+let p=fluid.heat(fluid.rect(8,8,1.0,1.0),2).initial("sin(pi*x)*sin(pi*y)");for(i in range(0,24)){let t=0.004*float(i);let f=p.evolve(t,0.001);fluid.assert_close(f.value(0.5,0.5),fluid.eval("exp(-2*pi*pi*"+str(t)+")"),0.012);f.sample(31,31).save_csv("build/examples/heat_clock-"+str(i)+".csv");}
+end _dsl_
+savedsl(p, "build/heat_clock.dslb");
+r = system ${dsl_cli(p)} --dsl build/heat_clock.dslb;
+assert(r.code == 0);
+r = system bash examples/render-one.sh heat_clock;
+println(r.stdout);
+if (r.code!=0) { println(r.stderr); }
+assert(r.code == 0);

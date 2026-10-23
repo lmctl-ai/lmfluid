@@ -1,0 +1,11 @@
+mkdir("build/examples");
+p = _dsl_ cli="lmfluid" install="github:lmctl-ai/lmfluid@latest";
+let f=fluid.poisson(fluid.rect(12,12,1.0,1.0),2).source("2*pi*pi*sin(pi*x)*sin(pi*y)").solve();fluid.assert_close(f.l2_error("sin(pi*x)*sin(pi*y)"),0.0,0.001);f.sample(41,41).save_csv("build/examples/sine_dome.csv");
+end _dsl_
+savedsl(p, "build/sine_dome.dslb");
+r = system ${dsl_cli(p)} --dsl build/sine_dome.dslb;
+assert(r.code == 0);
+r = system bash examples/render-one.sh sine_dome;
+println(r.stdout);
+if (r.code!=0) { println(r.stderr); }
+assert(r.code == 0);

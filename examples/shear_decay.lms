@@ -1,0 +1,11 @@
+mkdir("build/examples");
+p = _dsl_ cli="lmfluid" install="github:lmctl-ai/lmfluid@latest";
+let v=fluid.periodic(32,32,0.1).init("0.03*sin(2*pi*y/32)","0").run(400);fluid.assert_close(v.velocity(0,8,0),fluid.eval("0.03*exp(-0.1*(2*pi/32)^2*400)*sin(2*pi*8.5/32)"),0.0002);v.sample().save_csv("build/examples/shear_decay.csv");
+end _dsl_
+savedsl(p, "build/shear_decay.dslb");
+r = system ${dsl_cli(p)} --dsl build/shear_decay.dslb;
+assert(r.code == 0);
+r = system bash examples/render-one.sh shear_decay;
+println(r.stdout);
+if (r.code!=0) { println(r.stderr); }
+assert(r.code == 0);

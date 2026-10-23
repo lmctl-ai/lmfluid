@@ -1,0 +1,24 @@
+mkdir("build/visual");
+mkdir("docs/images");
+v = _dsl_ cli="lmplot" install="github:lmctl-ai/lmplot@latest";
+plot.png("docs/images/heated_plate.png",900,520);
+plot.cmd("set datafile separator ','");
+plot.cmd("set border 3");
+plot.cmd("set lmargin 14");
+plot.cmd("set rmargin 12");
+plot.cmd("set tics nomirror");
+plot.cmd("set grid back lc rgb '#e4e9ef'");
+plot.cmd("set key outside top center horizontal");
+plot.cmd("set style line 1 lc rgb '#007f86' lw 3");
+plot.cmd("set style line 2 lc rgb '#df6b38' lw 3");
+plot.cmd("set style line 3 lc rgb '#5864a8' lw 3");
+plot.cmd("set title 'Thermal diffusion removes short wavelengths first'");
+plot.cmd("set xlabel 'x along the middle of the plate (model units)'");
+plot.cmd("set ylabel 'Temperature (relative)'");
+plot.cmd("plot 'build/examples/heated_plate_initial.csv' using ($2==0.5?$1:1/0):4 with lines ls 2 title 'Initial', 'build/examples/heated_plate_final.csv' using ($2==0.5?$1:1/0):4 with lines ls 1 title 'After t=0.02'");
+plot.close();
+end _dsl_
+savedsl(v,"build/visual/heated_plate.dslb");
+r = system ${dsl_cli(v)} --dsl build/visual/heated_plate.dslb;
+if (r.code!=0) { println(r.stdout); println(r.stderr); }
+assert(r.code==0);

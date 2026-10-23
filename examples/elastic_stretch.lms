@@ -1,0 +1,11 @@
+mkdir("build/examples");
+p = _dsl_ cli="lmfluid" install="github:lmctl-ai/lmfluid@latest";
+let f=fluid.elasticity(fluid.rect(12,12,1.0,1.0),1).lame(1.0,1.0).displacement(0,"0.1*x","0","0").solve();fluid.assert_close(f.l2_error_vector("0.1*x","0","0"),0.0,0.0000001);f.sample(21,21).save_csv("build/examples/elastic_stretch.csv");
+end _dsl_
+savedsl(p, "build/elastic_stretch.dslb");
+r = system ${dsl_cli(p)} --dsl build/elastic_stretch.dslb;
+assert(r.code == 0);
+r = system bash examples/render-one.sh elastic_stretch;
+println(r.stdout);
+if (r.code!=0) { println(r.stderr); }
+assert(r.code == 0);

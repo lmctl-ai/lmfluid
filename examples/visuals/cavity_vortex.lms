@@ -1,0 +1,30 @@
+mkdir("build/visual");
+mkdir("docs/images");
+v = _dsl_ cli="lmplot" install="github:lmctl-ai/lmplot@latest";
+plot.png("docs/images/cavity_vortex.png",900,520);
+plot.cmd("set datafile separator ','");
+plot.cmd("set border 3");
+plot.cmd("set lmargin 14");
+plot.cmd("set rmargin 12");
+plot.cmd("set tics nomirror");
+plot.cmd("set grid back lc rgb '#e4e9ef'");
+plot.cmd("set key outside top center horizontal");
+plot.cmd("set style line 1 lc rgb '#007f86' lw 3");
+plot.cmd("set style line 2 lc rgb '#df6b38' lw 3");
+plot.cmd("set style line 3 lc rgb '#5864a8' lw 3");
+plot.cmd("set title 'A moving lid drives a viscous recirculating cavity'");
+plot.cmd("set xlabel 'x (lattice units)'");
+plot.cmd("set ylabel 'y (lattice units)'");
+plot.cmd("set size ratio -1");
+plot.cmd("set xrange [0:32]");
+plot.cmd("set yrange [0:32]");
+plot.cmd("set palette defined (0 '#f5f8fa', 1 '#93d3d1')");
+plot.cmd("set cblabel 'Speed (lattice units)'");
+plot.cmd("unset key");
+plot.cmd("plot 'build/examples/cavity_vortex.csv' using 1:2:6 with image, '' using ((int($1)%4==0 && int($2)%4==0)?$1:1/0):2:($4*160):($5*160) with vectors head filled lc rgb '#17324d'");
+plot.close();
+end _dsl_
+savedsl(v,"build/visual/cavity_vortex.dslb");
+r = system ${dsl_cli(v)} --dsl build/visual/cavity_vortex.dslb;
+if (r.code!=0) { println(r.stdout); println(r.stderr); }
+assert(r.code==0);

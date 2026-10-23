@@ -1,5 +1,36 @@
 # lmfluid
 
+Finite-element fields and lattice-Boltzmann flow, computed with serial MFEM and D2Q9 and drawn with lmplot.
+
+| Boundary data bends a potential field | A body force makes parabolic channel flow | Sinusoidal forcing creates a smooth dome |
+| --- | --- | --- |
+| ![Boundary data bends a potential field](docs/images/poisson.png) | ![A body force makes parabolic channel flow](docs/images/channel.png) | ![Sinusoidal forcing creates a smooth dome](docs/images/sine_dome.png) |
+| [Boundary data bends a potential field](examples/poisson.lms) | [A body force makes parabolic channel flow](examples/channel.lms) | [Sinusoidal forcing creates a smooth dome](examples/sine_dome.lms) |
+
+| Diffusion erases fine temperature structure | Viscosity damps a periodic shear wave | A moving lid drives a recirculating vortex |
+| --- | --- | --- |
+| ![Diffusion erases fine temperature structure](docs/images/heated_plate.png) | ![Viscosity damps a periodic shear wave](docs/images/shear_decay.png) | ![A moving lid drives a recirculating vortex](docs/images/cavity_vortex.png) |
+| [Diffusion erases fine temperature structure](examples/heated_plate.lms) | [Viscosity damps a periodic shear wave](examples/shear_decay.lms) | [A moving lid drives a recirculating vortex](examples/cavity_vortex.lms) |
+
+[Animated cooling plate](docs/images/heat_clock.gif) · [Regenerate every figure](examples/render-all.sh)
+
+## Install and run
+
+Download a binary from [releases](https://github.com/lmctl-ai/lmfluid/releases), or let the example binding install it. Run `lmscript examples/poisson.lms`. For figures, put `lmplot` on PATH or set `VISUALS_NETWORK=1`; `ffmpeg` creates the optional animation.
+
+## Gallery
+
+| Example | Result |
+| --- | --- |
+| [poisson.lms](examples/poisson.lms) | [Boundary data bends a potential field](docs/images/poisson.png) |
+| [channel.lms](examples/channel.lms) | [A body force makes parabolic channel flow](docs/images/channel.png) |
+| [sine_dome.lms](examples/sine_dome.lms) | [Sinusoidal forcing creates a smooth dome](docs/images/sine_dome.png) |
+| [heated_plate.lms](examples/heated_plate.lms) | [Diffusion erases fine temperature structure](docs/images/heated_plate.png) |
+| [shear_decay.lms](examples/shear_decay.lms) | [Viscosity damps a periodic shear wave](docs/images/shear_decay.png) |
+| [cavity_vortex.lms](examples/cavity_vortex.lms) | [A moving lid drives a recirculating vortex](docs/images/cavity_vortex.png) |
+| [elastic_stretch.lms](examples/elastic_stretch.lms) | [An elastic patch stretches under displacement](docs/images/elastic_stretch.png) |
+| [heat_clock.lms](examples/heat_clock.lms) | [A cooling eigenmode fades without changing shape](docs/images/heat_clock.png) |
+
 Finite-element PDEs and lattice-Boltzmann flow for lmscript in one static executable. MFEM 4.8 supplies serial H1 finite elements for Poisson, heat and linear elasticity; an original MIT D2Q9 solver supplies periodic flow, body-force-driven channels and lid-driven cavities.
 
 [![CI](https://github.com/lmctl-ai/lmfluid/actions/workflows/ci.yml/badge.svg)](https://github.com/lmctl-ai/lmfluid/actions/workflows/ci.yml)
