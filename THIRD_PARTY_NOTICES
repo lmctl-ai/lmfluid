@@ -1,4 +1,4 @@
-lmfluid 0.1.2 includes the third-party software listed below.
+lmfluid 0.2.0 includes the third-party software listed below.
 
 lmfluid: original MIT host and D2Q9 solver, with serial MFEM 4.8 (BSD-3-Clause).
 The pinned source is fetched into ignored third_party; no GPL/LGPL scientific libraries are enabled.
