@@ -103,6 +103,13 @@ Requires CMake 3.24+, C++17, git, Python 3 and lmscript for testing (`npm i -g @
 
 The suite checks manufactured solutions, P1/P2 spatial convergence, heat eigenmode decay, an elasticity affine patch, 3D Poisson and mesh round trips, periodic mass/momentum, shear-wave decay, the Poiseuille profile and Ghia's Re=100 cavity centerline datum. Test programs and both example CSV exports run with assertions, deterministic reruns, schema/signature parity, pin/notices/static-link checks, dry run, and error cases. See [durable memory](durable-memory/index.md) for measurements and exact scope.
 
+## Resource limits
+
+A program may use at most 4096 MiB in total (meshes, FE spaces and solver matrices, LBM grids,
+sampled matrices, everything the host keeps); beyond that it stops with a run error (exit 3) naming
+the limit, instead of exhausting the machine. Set `LMFLUID_MAX_MEMORY_MB` to change it, e.g.
+`LMFLUID_MAX_MEMORY_MB=16384 lmscript big.lms`.
+
 ## License
 
 Our host, wrappers, examples and D2Q9 implementation are [MIT](LICENSE). MFEM is BSD-3-Clause and is fetched at the commit in `deps.lock` into ignored `third_party/`; its bundled permissive notices are reproduced in [THIRD_PARTY_NOTICES](THIRD_PARTY_NOTICES) and embedded in `--notices`. OpenFOAM and GPL/LGPL scientific libraries are excluded. The optional reduced Eigen backend is unnecessary when the serial MFEM build passes the release matrix.

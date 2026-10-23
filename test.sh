@@ -130,6 +130,41 @@ expect_error deep_expression "let x = fluid.eval(\"$deep\");" "nested too deeply
 expect_error huge_number 'let x = fluid.eval("1e400");' "out of range"
 ok "errors stop with exit 3 and clear messages (20 cases)"
 
+# Memory budget: a runaway allocation loop stops with a run error (exit 3, message on stderr and in
+# the JSON line) instead of exhausting the machine. A small budget everywhere; on Linux also the
+# default 4096 MiB under a 6 GiB address-space limit (ulimit only here, never in the host).
+budget_program() { # name, snippet
+  cat >"$WORK/$1.lms" <<LMS
+p = _dsl_ cli="lmfluid";
+$2
+end _dsl_
+savedsl(p, "$WORK/$1.dslb");
+LMS
+  "$LMSCRIPT" "$WORK/$1.lms" >/dev/null || fail "$1.lms compile"
+}
+budget_program runaway 'let i = 0;
+while (i < 1000000) {
+  let f = fluid.periodic(1000, 1000, 0.1);
+  i = i + 1;
+}'
+set +e; out="$(LMFLUID_MAX_MEMORY_MB=64 "$HOST" --dsl "$WORK/runaway.dslb" 2>"$WORK/runaway.err")"; code=$?; set -e
+[ "$code" = 3 ] || fail "runaway loop under LMFLUID_MAX_MEMORY_MB=64: exit $code, expected 3 ($out)"
+echo "$out" | grep -q "memory budget exceeded" || fail "runaway loop: JSON lacks the budget message: $out"
+grep -q "LMFLUID_MAX_MEMORY_MB" "$WORK/runaway.err" || fail "runaway loop: no budget message on stderr"
+# The budget also trips inside MFEM (mesh, assembly, sparse matrix): reported, never mfem_error/abort.
+budget_program fembudget 'let f = fluid.poisson(fluid.rect(300, 300, 1.0, 1.0), 3).source("1").solve();'
+set +e; out="$(LMFLUID_MAX_MEMORY_MB=64 "$HOST" --dsl "$WORK/fembudget.dslb" 2>/dev/null)"; code=$?; set -e
+[ "$code" = 3 ] && echo "$out" | grep -q "memory budget exceeded" || fail "FEM solve over LMFLUID_MAX_MEMORY_MB=64: exit $code ($out)"
+set +e; LMFLUID_MAX_MEMORY_MB=-5 "$HOST" --dsl "$WORK/runaway.dslb" >/dev/null 2>"$WORK/badenv.err"; code=$?; set -e
+[ "$code" = 2 ] && grep -q "positive whole number" "$WORK/badenv.err" || fail "bad LMFLUID_MAX_MEMORY_MB: exit $code"
+if [ "$UNAME_S" = Linux ]; then
+  set +e; out="$(ulimit -v 6291456; "$HOST" --dsl "$WORK/runaway.dslb" 2>/dev/null)"; code=$?; set -e
+  [ "$code" = 3 ] && echo "$out" | grep -q "limit 4096 MiB" || fail "runaway loop with the default budget under ulimit -v 6 GiB: exit $code ($out)"
+  ok "memory budget: runaway LBM loop and FEM solve stop at 64 MiB, the loop also at the default 4096 MiB (under ulimit -v 6 GiB)"
+else
+  ok "memory budget: runaway LBM loop and FEM solve stop at LMFLUID_MAX_MEMORY_MB=64 (default-budget run is Linux-only)"
+fi
+
 # Dry run loads/verifies bytecode without executing numerical work or writing CSV.
 rm -f build/examples/poisson.csv
 "$HOST" --dry-run --dsl build/poisson.dslb >"$WORK/dry.out" || fail "dry run"
