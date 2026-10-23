@@ -7,6 +7,7 @@
 #include <stdexcept>
 
 using lmfluid::LBM;
+static constexpr double PI = 3.141592653589793238462643383279502884;
 static int checks = 0;
 static void check(bool condition, const char *what) {
   ++checks;
@@ -53,10 +54,9 @@ static void shear_decay() {
   auto s = LBM::periodic(24, H, nu);
   s.init("0.001*sin(2*pi*y/64)", "0").run(100);
   double measured = 0,
-         expected = amp * std::exp(-nu * std::pow(2 * M_PI / H, 2) * 100);
+         expected = amp * std::exp(-nu * std::pow(2 * PI / H, 2) * 100);
   for (int y = 0; y < H; ++y)
-    measured +=
-        s.velocity(7, y, 0) * std::sin(2 * M_PI * (y + .5) / H) * 2.0 / H;
+    measured += s.velocity(7, y, 0) * std::sin(2 * PI * (y + .5) / H) * 2.0 / H;
   check(rel(measured, expected) < .01, "periodic shear-wave viscous decay");
 }
 

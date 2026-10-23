@@ -11,6 +11,7 @@ using lmfluid::Field;
 using lmfluid::Mesh;
 using lmfluid::Problem;
 
+static constexpr double PI = 3.141592653589793238462643383279502884;
 static int checks = 0;
 static void ok(bool condition, const char *what) {
   ++checks;
@@ -63,7 +64,7 @@ static void heat_time_and_boundary() {
   p.order = 2;
   p.initial("sin(pi*x)*sin(pi*y)").source("0").dirichlet(0, "0");
   Field f = p.evolve(0.01, 0.001);
-  double expected = std::exp(-2.0 * M_PI * M_PI * 0.01);
+  double expected = std::exp(-2.0 * PI * PI * 0.01);
   ok(std::abs(f.value(0.5, 0.5, 0) - expected) < 2e-3, "heat sine mode");
   ok(std::abs(f.time() - 0.01) < 1e-13, "heat final time");
 
