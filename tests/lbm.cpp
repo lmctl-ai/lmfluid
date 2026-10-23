@@ -1,5 +1,6 @@
 #include "../cpp/core.hpp"
 
+#include <algorithm>
 #include <cfloat>
 #include <chrono>
 #include <cmath>
@@ -77,21 +78,63 @@ static void poiseuille() {
   check(rel(c.mass(), nx * ny) < 1e-9, "channel mass conservation");
 }
 
+// Ghia, Ghia & Shin, J. Comput. Phys. 48 (1982), Re=100, tables I and II: u on the vertical
+// centerline (y, u/U) and v on the horizontal centerline (x, v/U).
+static const double ghia_u[][2] = {
+    {.9766, .84123},  {.9688, .78871},  {.9609, .73722},  {.9531, .68717},
+    {.8516, .23151},  {.7344, .00332},  {.6172, -.13641}, {.5, -.20581},
+    {.4531, -.21090}, {.2813, -.15662}, {.1719, -.10150}, {.1016, -.06434},
+    {.0703, -.04775}, {.0625, -.04192}, {.0547, -.03717}};
+static const double ghia_v[][2] = {
+    {.9688, -.05906}, {.9609, -.07391}, {.9531, -.08864}, {.9453, -.10313},
+    {.9063, -.16914}, {.8594, -.22445}, {.8047, -.24533}, {.5, .05454},
+    {.2344, .17527},  {.2266, .17507},  {.1563, .16077},  {.0938, .12317},
+    {.0781, .10890},  {.0703, .10091},  {.0625, .09233}};
+
+// Linear interpolation along a centerline (average of the two middle columns/rows) between cell
+// centers at (j + .5) / n; s is the normalized position along the line.
+static double centerline(const LBM &c, int n, double s, int component) {
+  double p = s * n - .5;
+  int j = (int)std::floor(p);
+  double a = p - j;
+  auto at = [&](int k) {
+    k = std::max(0, std::min(n - 1, k));
+    return component == 0
+               ? .5 * (c.velocity(n / 2 - 1, k, 0) + c.velocity(n / 2, k, 0))
+               : .5 * (c.velocity(k, n / 2 - 1, 1) + c.velocity(k, n / 2, 1));
+  };
+  return (1 - a) * at(j) + a * at(j + 1);
+}
+
 static void ghia_cavity() {
   constexpr int n = 32;
   constexpr double U = .08;
   auto c = LBM::cavity(n, n, U * n / 100.0, U);
   auto t0 = std::chrono::steady_clock::now();
-  c.init("0", "0").run(30000);
+  c.init("0", "0").run(29000);
+  double before = centerline(c, n, .5, 0);
+  c.run(1000);
   double center = .25 * (c.velocity(15, 15, 0) + c.velocity(16, 15, 0) +
                          c.velocity(15, 16, 0) + c.velocity(16, 16, 0));
   double ratio = center / U;
   double sec =
       std::chrono::duration<double>(std::chrono::steady_clock::now() - t0)
           .count();
-  // Ghia, Ghia & Shin, J. Comput. Phys. 48 (1982), Re=100 centerline datum.
-  check(std::abs(ratio + .20581) < .04, "Ghia Re=100 cavity center velocity");
-  std::cout << "ghia center/U=" << ratio << " (30k steps, " << sec << " s)\n";
+  check(std::abs(centerline(c, n, .5, 0) - before) < 1e-6 * U,
+        "cavity reached a steady state");
+  check(rel(c.mass(), n * n) < 1e-9, "cavity mass conservation");
+  check(std::abs(ratio + .20581) < .015, "Ghia Re=100 cavity center velocity");
+  // Whole profiles: 30 tabulated points. Measured max deviation 0.0093 (u) / 0.0074 (v) at
+  // 32x32, 0.0056 / 0.0034 at 64x64 (second-order approach to the benchmark).
+  double du = 0, dv = 0;
+  for (const auto &g : ghia_u)
+    du = std::max(du, std::abs(centerline(c, n, g[0], 0) / U - g[1]));
+  for (const auto &g : ghia_v)
+    dv = std::max(dv, std::abs(centerline(c, n, g[0], 1) / U - g[1]));
+  check(du < .015, "Ghia Re=100 u profile on the vertical centerline");
+  check(dv < .015, "Ghia Re=100 v profile on the horizontal centerline");
+  std::cout << "ghia center/U=" << ratio << ", max profile deviation u " << du
+            << " v " << dv << " (30k steps, " << sec << " s)\n";
 }
 
 int main() {

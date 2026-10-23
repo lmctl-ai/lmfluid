@@ -8,4 +8,6 @@ FEM fields expose point values (component zero in the 2D convenience overload), 
 
 LBM quantities use lattice units and half-cell centers. viscosity nu sets tau=.5+3nu, g is channel x acceleration, and cavity lid_speed is the moving wall velocity. run advances the current state; init resets lattice density to one and time to zero. Physical units require a caller-selected lattice mapping. No automatic unit conversion is done.
 
+load_mesh accepts the conforming MFEM mesh v1.0/v1.2 text formats (what Mesh.save writes) and validates element/boundary vertex indices, geometry codes, attributes (1..100000), counts and the vertex space dimension before MFEM parses the file: MFEM trusts those fields and segfaults on a dangling vertex index. Other formats (Gmsh, VTK, NC, NURBS) are rejected. MFEM stdout diagnostics (mfem::out) are routed to stderr so stdout stays the JSON result.
+
 Only standard version/notices/schema/signature/bytecode CLI queries exist. Dry run loads/verifies bytecode without running or writing files. Usage exits 2; load/run errors exit 3 with SDK diagnostics. Grid/sample/step/DOF limits and finite/positivity checks guard numerical misuse.

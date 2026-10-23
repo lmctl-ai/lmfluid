@@ -1,14 +1,21 @@
 p = _dsl_ cli="lmfluid" install="github:lmctl-ai/lmfluid@latest";
-let coarse1 = fluid.poisson(fluid.rect(8, 8, 1.0, 1.0), 1).source("19.7392088021787*sin(3.141592653589793*x)*sin(3.141592653589793*y)").dirichlet(0, "0.0").solve();
-let fine1 = fluid.poisson(fluid.rect(16, 16, 1.0, 1.0), 1).source("19.7392088021787*sin(3.141592653589793*x)*sin(3.141592653589793*y)").dirichlet(0, "0.0").solve();
-let coarse2 = fluid.poisson(fluid.rect(8, 8, 1.0, 1.0), 2).source("19.7392088021787*sin(3.141592653589793*x)*sin(3.141592653589793*y)").dirichlet(0, "0.0").solve();
-let fine2 = fluid.poisson(fluid.rect(16, 16, 1.0, 1.0), 2).source("19.7392088021787*sin(3.141592653589793*x)*sin(3.141592653589793*y)").dirichlet(0, "0.0").solve();
-let e1c = coarse1.l2_error("sin(3.141592653589793*x)*sin(3.141592653589793*y)");
-let e1f = fine1.l2_error("sin(3.141592653589793*x)*sin(3.141592653589793*y)");
-let e2c = coarse2.l2_error("sin(3.141592653589793*x)*sin(3.141592653589793*y)");
-let e2f = fine2.l2_error("sin(3.141592653589793*x)*sin(3.141592653589793*y)");
-fluid.assert_true(e1c > e1f * 2.0);
-fluid.assert_true(e2c > e2f * 4.0);
-fluid.assert_true(e2f < 0.001);
+# Manufactured solution u = sin(pi x) sin(pi y), the first Laplace eigenmode of the unit square:
+# -Delta u = 2 pi^2 u (2 pi^2 = 19.7392088021787). Halving h must divide the L2 error by 2^(p+1):
+# measured ratios 8 -> 16 are 3.994 (P1), 7.973 (P2), 15.96 (P3).
+let src = "19.7392088021787*sin(3.141592653589793*x)*sin(3.141592653589793*y)";
+let exact = "sin(3.141592653589793*x)*sin(3.141592653589793*y)";
+let e1c = fluid.poisson(fluid.rect(8, 8, 1.0, 1.0), 1).source(src).dirichlet(0, "0.0").solve().l2_error(exact);
+let e1f = fluid.poisson(fluid.rect(16, 16, 1.0, 1.0), 1).source(src).dirichlet(0, "0.0").solve().l2_error(exact);
+let e2c = fluid.poisson(fluid.rect(8, 8, 1.0, 1.0), 2).source(src).dirichlet(0, "0.0").solve().l2_error(exact);
+let e2f = fluid.poisson(fluid.rect(16, 16, 1.0, 1.0), 2).source(src).dirichlet(0, "0.0").solve().l2_error(exact);
+let e3c = fluid.poisson(fluid.rect(8, 8, 1.0, 1.0), 3).source(src).dirichlet(0, "0.0").solve().l2_error(exact);
+let e3f = fluid.poisson(fluid.rect(16, 16, 1.0, 1.0), 3).source(src).dirichlet(0, "0.0").solve().l2_error(exact);
+# order 2 for p=1: ratio 4 within 5 percent (order 1.93..2.07)
+fluid.assert_close(e1c / e1f, 4.0, 0.2);
+# order 3 for p=2: ratio 8 within 5 percent
+fluid.assert_close(e2c / e2f, 8.0, 0.4);
+# order 4 for p=3: ratio 16 within 6 percent
+fluid.assert_close(e3c / e3f, 16.0, 1.0);
+fluid.assert_true(e1f < 0.002 && e2f < 0.00004 && e3f < 0.0000004);
 end _dsl_
 savedsl(p, "build/poisson_convergence.dslb");
