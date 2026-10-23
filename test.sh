@@ -117,7 +117,14 @@ expect_error matrix_index 'let m=fluid.periodic(8,8,0.1).sample(); let x=m.get(1
 expect_error assertfail 'fluid.assert_close(1.0,2.0,0.1);' "assert_close"
 expect_error nan_assert 'fluid.assert_close(sqrt(-1.0),0.0,0.1);' "assert_close"
 expect_error assert_true 'fluid.assert_true(false);' "assert_true"
-ok "errors stop with exit 3 and clear messages (15 cases)"
+# Malformed MFEM meshes are rejected before MFEM's reader (which segfaulted on a dangling vertex index).
+printf 'MFEM mesh v1.0\n\ndimension\n2\n\nelements\n1\n1 3 0 1 2 3\n\nboundary\n0\n\nvertices\n2\n2\n0 0\n1 0\n' >"$WORK/dangling.mesh"
+expect_error dangling_vertex "let m = fluid.load_mesh(\"$WORK/dangling.mesh\");" "only 2 vertices"
+printf 'garbage\n' >"$WORK/garbage.mesh"
+expect_error mesh_format "let m = fluid.load_mesh(\"$WORK/garbage.mesh\");" "MFEM mesh v1.0"
+expect_error no_convergence 'let f = fluid.poisson(fluid.rect(16,16,1.0,1.0),1).source("1").tol(0.000000000001, 1).solve();' "did not converge"
+[ "$(printf '%s\n' "$out" | wc -l | tr -d ' ')" = 1 ] || fail "solver diagnostics leaked into the JSON stdout: $out"
+ok "errors stop with exit 3 and clear messages (18 cases)"
 
 # Dry run loads/verifies bytecode without executing numerical work or writing CSV.
 rm -f build/examples/poisson.csv

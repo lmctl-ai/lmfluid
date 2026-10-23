@@ -9,6 +9,8 @@ struct Matrix {
   double get(int, int) const;
   void save_csv(const std::string &) const;
 };
+// send MFEM's stdout diagnostics (mfem::out) to stderr; call once before running programs
+void route_mfem_output();
 struct MeshData;
 struct FieldData;
 struct Mesh {

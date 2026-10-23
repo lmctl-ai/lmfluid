@@ -56,7 +56,12 @@ template <class F> Value translate(F &&f) {
   } catch (const dslvm::Error &) {
     throw;
   } catch (const std::exception &e) {
-    throw dslvm::Error(e.what());
+    // MFEM errors append "\n ... in function: ...\n ... in file: <build path>:<line>"; keep the message
+    std::string msg = e.what();
+    const auto trailer = msg.find("\n ... in function");
+    if (trailer != std::string::npos)
+      msg.erase(trailer);
+    throw dslvm::Error(msg);
   }
 }
 
@@ -303,6 +308,7 @@ int main(int argc, char **argv) {
   _setmode(_fileno(stdout), _O_BINARY);
   _setmode(_fileno(stderr), _O_BINARY);
 #endif
+  lmfluid::route_mfem_output();
   Host h;
   dslvm::Registry reg;
   register_host(reg, h);

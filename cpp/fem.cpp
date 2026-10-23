@@ -7,9 +7,11 @@
 #include <cmath>
 #include <fstream>
 #include <iomanip>
+#include <iostream>
 #include <limits>
 #include <map>
 #include <memory>
+#include <sstream>
 #include <stdexcept>
 
 namespace lmfluid {
@@ -184,7 +186,8 @@ static void solve_linear(mfem::BilinearForm &a, mfem::LinearForm &b,
   cg.SetMaxIter(maxit);
   cg.SetRelTol(rtol);
   cg.SetAbsTol(0.0);
-  cg.SetPrintLevel(0);
+  // legacy level 0 still prints "PCG: No convergence!" to mfem::out; we report it ourselves
+  cg.SetPrintLevel(mfem::IterativeSolver::PrintLevel().None());
   cg.Mult(B, X);
   check(cg.GetConverged(), "linear solve did not converge (residual " +
                                std::to_string(cg.GetFinalNorm()) + ")");
@@ -193,7 +196,104 @@ static void solve_linear(mfem::BilinearForm &a, mfem::LinearForm &b,
     check(std::isfinite(x[i]), "linear solve returned a nonfinite field");
 }
 
+// MFEM's reader trusts vertex indices, geometry codes and the space dimension: a mesh whose elements
+// name vertices that do not exist crashes inside the Mesh constructor (SIGSEGV), so check the
+// conforming MFEM formats ourselves before MFEM sees them.
+static void validate_mfem_mesh(const std::string &text) {
+  std::istringstream in(text);
+  auto bad = [](const std::string &why) {
+    throw std::runtime_error("lmfluid: invalid mesh file: " + why);
+  };
+  auto skip_comments = [&] {
+    in >> std::ws;
+    while (in.peek() == '#') {
+      std::string line;
+      std::getline(in, line);
+      in >> std::ws;
+    }
+  };
+  std::string header;
+  in >> std::ws;
+  std::getline(in, header);
+  if (!header.empty() && header.back() == '\r')
+    header.pop_back();
+  if (header != "MFEM mesh v1.0" && header != "MFEM mesh v1.2")
+    bad("only the MFEM mesh v1.0/v1.2 formats (as written by Mesh.save) "
+        "are supported, found '" + header.substr(0, 40) + "'");
+  auto keyword = [&](const char *want) {
+    skip_comments();
+    std::string ident;
+    in >> ident;
+    if (ident != want)
+      bad(std::string("expected '") + want + "'");
+  };
+  auto count = [&](long long hi, const char *what) {
+    long long n = -1;
+    in >> n;
+    if (!in || n < 0 || n > hi)
+      bad(std::string("bad ") + what + " count");
+    return n;
+  };
+  // vertices and dimension of MFEM geometry codes 0..7
+  static const int nverts[8] = {1, 2, 3, 4, 4, 8, 6, 5};
+  static const int gdim[8] = {0, 1, 2, 2, 3, 3, 3, 3};
+  keyword("dimension");
+  long long dim = count(3, "dimension");
+  if (dim < 1)
+    bad("bad dimension");
+  long long max_vertex = -1;
+  auto read_elements = [&](long long n, long long want_dim, const char *what) {
+    for (long long e = 0; e < n; ++e) {
+      long long attr = 0, geom = -1;
+      in >> attr >> geom;
+      if (!in)
+        bad(std::string("truncated ") + what + " list");
+      if (attr < 1 || attr > 100000)
+        bad(std::string(what) + " attribute must be in 1..100000");
+      if (geom < 0 || geom > 7 || gdim[geom] != want_dim)
+        bad(std::string(what) + " geometry does not match the dimension");
+      for (int k = 0; k < nverts[geom]; ++k) {
+        long long v = -1;
+        in >> v;
+        if (!in || v < 0)
+          bad(std::string("bad vertex index in ") + what + " list");
+        max_vertex = std::max(max_vertex, v);
+      }
+    }
+  };
+  keyword("elements");
+  long long ne = count(100000, "element");
+  if (ne < 1)
+    bad("no elements");
+  read_elements(ne, dim, "element");
+  keyword("boundary");
+  read_elements(count(10000000, "boundary element"), dim - 1, "boundary");
+  keyword("vertices");
+  long long nv = count(10000000, "vertex");
+  if (max_vertex >= nv)
+    bad("an element uses vertex " + std::to_string(max_vertex) + " but only " +
+        std::to_string(nv) + " vertices are listed");
+  std::string ident;
+  in >> ident;
+  if (ident == "nodes")
+    return; // curved mesh: MFEM reads and checks the nodal FE space
+  if (ident != std::to_string(dim))
+    bad("vertex space dimension must equal the mesh dimension");
+  for (long long i = 0; i < nv * dim; ++i) {
+    double c = 0;
+    in >> c;
+    if (!in || !std::isfinite(c))
+      bad("truncated or nonfinite vertex coordinates");
+  }
+}
+
 } // namespace
+
+void route_mfem_output() {
+  // MFEM warnings and solver chatter go to mfem::out (stdout by default), where they would be
+  // mixed into the host's JSON result line.
+  mfem::out.SetStream(std::cerr);
+}
 
 Mesh Mesh::rect(int nx, int ny, double lx, double ly) {
   check(nx > 0 && ny > 0 && std::isfinite(lx) && std::isfinite(ly) && lx > 0 &&
@@ -224,11 +324,17 @@ Mesh Mesh::box(int nx, int ny, int nz, double lx, double ly, double lz) {
 
 Mesh Mesh::load(const std::string &path) {
   check(!path.empty(), "mesh path is empty");
-  std::ifstream input(path);
+  std::ifstream input(path, std::ios::binary);
   check((bool)input, "cannot open mesh: " + path);
+  std::ostringstream buf;
+  buf << input.rdbuf();
+  check((bool)input, "cannot read mesh: " + path);
+  const std::string text = buf.str();
+  validate_mfem_mesh(text);
+  std::istringstream mesh_stream(text);
   Mesh out;
   out.data = std::make_shared<MeshData>();
-  out.data->mesh.reset(new mfem::Mesh(path.c_str(), 1, 1, true));
+  out.data->mesh.reset(new mfem::Mesh(mesh_stream, 1, 1, true));
   check(out.data->mesh->Dimension() == 2 || out.data->mesh->Dimension() == 3,
         "only 2D and 3D meshes are supported");
   check(out.data->mesh->Dimension() == out.data->mesh->SpaceDimension(),
