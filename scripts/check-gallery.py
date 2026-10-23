@@ -2,9 +2,9 @@
 """Check gallery sources, image signatures, dimensions and byte budgets."""
 import pathlib,re,struct,sys
 r=pathlib.Path(__file__).resolve().parent.parent
-s=(r/'README.md').read_text()
+s=(r/'README.md').read_text(encoding='utf-8')
 # the repository name comes from CMakeLists.txt, so the check also works in a git worktree
-name=re.search(r'project\((\w+)',(r/'CMakeLists.txt').read_text()).group(1)
+name=re.search(r'project\((\w+)',(r/'CMakeLists.txt').read_text(encoding='utf-8')).group(1)
 prefix="https://raw.githubusercontent.com/lmctl-ai/"+name+"/main/examples/"
 urls=re.findall(r'lmctl autorun (https://raw\.githubusercontent\.com/[^\s`|<>]+\.lms)',s)
 assert len(urls)>=14, "Every gallery card and example listing needs an autorun command"
@@ -15,7 +15,7 @@ for url in urls:
 for path in re.findall(r'\]\((docs/images/[^)]+)\)',s):
  assert (r/path).is_file(), f"Missing image {path}"
 for p in (r/'examples').glob('*.lms'):
- text=p.read_text()
+ text=p.read_text(encoding='utf-8')
  assert any(f'cli="{h}" install="github:lmctl-ai/{h}@latest"' in text for h in ('lmplot','lmdraw','lmcad')),p
  assert 'examples/render-' not in text and 'examples/visuals' not in text,p
  assert 'images/'+p.stem+'.png' in text,p
