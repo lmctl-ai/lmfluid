@@ -11,3 +11,13 @@ Native FEM regressions include manufactured Poisson, spatial convergence, exact 
 Measured P1 L2 errors on 4/8 grids: 0.0301896 and 0.00758781, rate 1.9923. P2 errors on 2/4 grids: 0.0144453 and 0.00193277, rate 2.90186. The cavity center ratio is -0.197112 compared with -0.20581; the coarse-grid test allows 0.04 absolute normalized error. Native Release suites run in roughly 1.5 seconds locally.
 
 GCC and Clang compile our wrappers; static analysis and shellcheck/Python checks are run. ASan/UBSan instrument our FEM wrapper, matrix code, LBM and native tests while linking the already-built unmodified MFEM archive. MFEM itself is not sanitizer-instrumented. No assertion is disabled by NDEBUG. Cross-platform results use numerical tolerances; deterministic CSV comparisons are within one platform.
+
+Successful main CI build-and-test phase times (seconds, including tests; restored build trees may be reused):
+
+| Platform | Seconds |
+| --- | --- |
+| macos-x64 | 493 |
+| linux-arm64 | 202 |
+| linux-x64 | 309 |
+| macos-arm64 | 213 |
+| windows-x64 | 278 |
