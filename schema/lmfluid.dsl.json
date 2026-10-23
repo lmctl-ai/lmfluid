@@ -113,6 +113,15 @@
             "returns": "void"
           }
         ],
+        "matrix": [
+          {
+            "params": [
+              "int",
+              "int"
+            ],
+            "returns": "Matrix"
+          }
+        ],
         "eval": [
           {
             "params": [
@@ -266,6 +275,26 @@
             "returns": "float"
           }
         ],
+        "gradient": [
+          {
+            "params": [
+              "float",
+              "float",
+              "int"
+            ],
+            "returns": "float"
+          },
+          {
+            "params": [
+              "float",
+              "float",
+              "float",
+              "int",
+              "int"
+            ],
+            "returns": "float"
+          }
+        ],
         "l2_error": [
           {
             "params": [
@@ -388,6 +417,55 @@
             "params": [],
             "returns": "Matrix"
           }
+        ],
+        "obstacle": [
+          {
+            "params": [
+              "string"
+            ],
+            "returns": "LBM"
+          }
+        ],
+        "is_solid": [
+          {
+            "params": [
+              "int",
+              "int"
+            ],
+            "returns": "bool"
+          }
+        ],
+        "solid_cells": [
+          {
+            "params": [],
+            "returns": "int"
+          }
+        ],
+        "solid_force": [
+          {
+            "params": [
+              "int"
+            ],
+            "returns": "float"
+          }
+        ],
+        "tau": [
+          {
+            "params": [],
+            "returns": "float"
+          }
+        ],
+        "mach": [
+          {
+            "params": [],
+            "returns": "float"
+          }
+        ],
+        "vorticity": [
+          {
+            "params": [],
+            "returns": "Matrix"
+          }
         ]
       }
     },
@@ -412,6 +490,16 @@
               "int"
             ],
             "returns": "float"
+          }
+        ],
+        "set": [
+          {
+            "params": [
+              "int",
+              "int",
+              "float"
+            ],
+            "returns": "Matrix"
           }
         ],
         "save_csv": [

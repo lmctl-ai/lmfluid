@@ -1,16 +1,18 @@
 #!/usr/bin/env bash
+# Regenerate every docs/images/* file from the examples. Each example writes
+# images/<name>.png (and images/<name>.gif for animated ones when ffmpeg is on PATH);
+# this script runs them all against build/lmfluid and copies the results into docs/.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 export PATH="$PWD/build:$PATH"
 compiler="${LMSCRIPT_BIN:-$(scripts/select-compiler.sh)}"
 mkdir -p docs/images
+command -v ffmpeg >/dev/null 2>&1 || echo "SKIP animations: ffmpeg unavailable (PNGs are still regenerated)"
 for program in examples/*.lms; do
-  "$compiler" "$program"
   name="$(basename "$program" .lms)"
+  rm -f "images/$name.gif"
+  "$compiler" "$program"
   cp "images/$name.png" "docs/images/$name.png"
+  if [ -f "images/$name.gif" ]; then cp "images/$name.gif" "docs/images/$name.gif"; fi
 done
-if command -v ffmpeg >/dev/null 2>&1; then
-  ffmpeg -y -v error -threads 1 -framerate 8 -i "build/visual/heat_clock-frame-%d.png" -vf scale=600:-1 -loop 0 "images/heat_clock.gif"
-  cp "images/heat_clock.gif" "docs/images/heat_clock.gif"
-else echo "SKIP animation: ffmpeg unavailable (all PNGs regenerated)"; fi
 python3 scripts/check-gallery.py --generated

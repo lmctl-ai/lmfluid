@@ -1,48 +1,106 @@
+# A cooling plate as a clock: the heat equation u_t = Laplace(u) on the unit square with
+# cold edges. The initial temperature sin(pi x) sin(pi y) is the slowest eigenmode, so it
+# keeps its shape and its height decays exactly as exp(-2 pi^2 t). P2 elements and
+# backward Euler (dt = 0.001) reproduce that to about 1%.
+# Writes images/heat_clock.png and, when ffmpeg is on PATH, images/heat_clock.gif.
 mkdir("build/examples");
 p = _dsl_ cli="lmfluid" install="github:lmctl-ai/lmfluid@latest";
-let p=fluid.heat(fluid.rect(8,8,1.0,1.0),2).initial("sin(pi*x)*sin(pi*y)");for(i in range(0,24)){let t=0.004*float(i);let f=p.evolve(t,0.001);fluid.assert_close(f.value(0.5,0.5),fluid.eval("exp(-2*pi*pi*"+str(t)+")"),0.012);f.sample(31,31).save_csv("build/examples/heat_clock-"+str(i)+".csv");}
+let p = fluid.heat(fluid.rect(8, 8, 1.0, 1.0), 2).initial("sin(pi*x)*sin(pi*y)");
+for (i in range(0, 24)) {
+  let t = 0.004 * float(i);
+  let f = p.evolve(t, 0.001);
+  fluid.assert_close(f.value(0.5, 0.5), fluid.eval("exp(-2*pi*pi*" + str(t) + ")"), 0.012);
+  f.sample(31, 31).save_csv("build/examples/heat_clock-" + str(i) + ".csv");
+}
 end _dsl_
 savedsl(p, "build/heat_clock.dslb");
 r = system ${dsl_cli(p)} --dsl build/heat_clock.dslb;
 assert(r.code == 0);
 
+# centre temperature of every snapshot, for the decay curve
+decay = "";
+for (k in range(0, 24)) {
+  rows = csv_parse(read_file("build/examples/heat_clock-" + str(k) + ".csv"), false);
+  decay = decay + str(0.004 * k) + "," + rows[15 * 31 + 15][3] + "\n";
+}
+write_file("build/examples/heat_clock-decay.csv", decay);
+
 mkdir("build/visual");
 mkdir("images");
 v = _dsl_ cli="lmplot" install="github:lmctl-ai/lmplot@latest";
-plot.png("images/heat_clock.png",900,520);
-plot.cmd("set datafile separator ','");
-plot.cmd("set border 3");
-plot.cmd("set lmargin 14");
-plot.cmd("set rmargin 12");
-plot.cmd("set tics nomirror");
-plot.cmd("set grid back lc rgb '#e4e9ef'");
-plot.cmd("set key outside top center horizontal");
-plot.cmd("set style line 1 lc rgb '#007f86' lw 3");
-plot.cmd("set style line 2 lc rgb '#df6b38' lw 3");
-plot.cmd("set style line 3 lc rgb '#5864a8' lw 3");
-plot.cmd("set title 'Cooling eigenmode at t=0.092; initial peak was 1'");
-plot.cmd("set xlabel 'x (model units)'");
-plot.cmd("set ylabel 'y (model units)'");
-plot.cmd("set size ratio -1");
-plot.cmd("set palette defined (0 '#17324d', 0.5 '#159895', 1 '#fff2b2')");
-plot.cmd("set cblabel 'Field value'");
-plot.cmd("unset key");
-plot.cmd("set cbrange [0:1]");
-plot.cmd("set cblabel 'Temperature / initial peak'");
-plot.cmd("set xrange [0:1]");
-plot.cmd("set yrange [0:1]");
-plot.cmd("plot 'build/examples/heat_clock-23.csv' using 1:2:4 with image");
-plot.close();
-for(k in range(0,24)) {
-plot.png("build/visual/heat_clock-frame-"+str(k)+".png",900,520);
-plot.cmd("set title 'Cooling plate: t = "+str(0.004*float(k))+"'");
-plot.cmd("plot 'build/examples/heat_clock-"+str(k)+".csv' using 1:2:4 with image");
-plot.close();
+# frame k shows the plate at t = 0.004 k next to the centre temperature so far
+for (k in range(0, 25)) {
+  let f = min(k, 23);
+  let last = f;
+  if (k == 24) {
+    plot.png("images/heat_clock.png", 960, 460);
+    f = 6;
+    last = 23;
+  } else {
+    plot.png("build/visual/heat_clock-frame-" + str(k) + ".png", 960, 460);
+  }
+  plot.cmd("reset");
+  plot.cmd("set datafile separator ','");
+  plot.cmd("set multiplot title 'A cooling plate keeps its shape: the sin(πx) sin(πy) mode decays as exp(-2π² t)' font ',14'");
+  plot.cmd("set lmargin at screen 0.06");
+  plot.cmd("set rmargin at screen 0.38");
+  plot.cmd("set tmargin at screen 0.82");
+  plot.cmd("set bmargin at screen 0.13");
+  plot.cmd("set size ratio -1");
+  plot.cmd("set xrange [0:1]");
+  plot.cmd("set yrange [0:1]");
+  plot.cmd("set xtics 0,0.5,1");
+  plot.cmd("set ytics 0,0.5,1");
+  plot.cmd("set tics nomirror");
+  plot.cmd("set palette defined (0 '#17324d', 0.5 '#159895', 1 '#fff2b2')");
+  plot.cmd("set cbrange [0:1]");
+  plot.cmd("set cbtics 0.25");
+  plot.cmd("set colorbox user origin screen 0.395,0.13 size screen 0.012,0.69");
+  let ts = "0.0" + str(f * 4);
+  if (f * 4 < 10) {
+    ts = "0.00" + str(f * 4);
+  }
+  plot.cmd("set title 'Temperature at t = " + ts + " (edges held at 0)' font ',11'");
+  plot.cmd("unset key");
+  plot.cmd("plot 'build/examples/heat_clock-" + str(f) + ".csv' using 1:2:4 with image");
+  plot.cmd("unset colorbox");
+  plot.cmd("set size noratio");
+  plot.cmd("set lmargin at screen 0.55");
+  plot.cmd("set rmargin at screen 0.97");
+  plot.cmd("set xrange [0:0.095]");
+  plot.cmd("set yrange [0.1:1.05]");
+  plot.cmd("set logscale y");
+  plot.cmd("set xtics 0,0.02,0.09");
+  plot.cmd("set ytics (0.1, 0.2, 0.3, 0.5, 0.7, 1)");
+  plot.cmd("set grid back lc rgb '#e4e9ef'");
+  plot.cmd("set border 3");
+  plot.cmd("set title 'Centre temperature (log scale): a straight line' font ',11'");
+  plot.cmd("set xlabel 'time t'");
+  plot.cmd("set ylabel 'T(0.5, 0.5, t)'");
+  plot.cmd("set key top right box opaque");
+  plot.cmd("plot exp(-2*pi**2*x) with lines lw 3 lc rgb '#df6b38' title 'exact exp(-2π² t)', 'build/examples/heat_clock-decay.csv' every ::0::" + str(last) + " using 1:2 with points pt 7 ps 1.8 lc rgb '#007f86' title 'finite elements'");
+  plot.cmd("unset multiplot");
+  plot.close();
 }
 end _dsl_
-savedsl(v,"build/visual/heat_clock.dslb");
+savedsl(v, "build/visual/heat_clock.dslb");
 r = system ${dsl_cli(v)} --dsl build/visual/heat_clock.dslb;
-if (r.code!=0) { println(r.stdout); println(r.stderr); }
-assert(r.code==0);
-
+if (r.code != 0) { println(r.stdout); println(r.stderr); }
+assert(r.code == 0);
 println("wrote images/heat_clock.png");
+
+fn has_cmd(name) {
+  path = env("PATH", "");
+  sep = contains(path, ";") ? ";" : ":";
+  for (dir in split(path, sep)) {
+    if (dir != "" && (file_exists(path_join(dir, name)) || file_exists(path_join(dir, name + ".exe")))) { return true; }
+  }
+  return false;
+}
+if (has_cmd("ffmpeg")) {
+  g = system ffmpeg -y -v error -threads 1 -framerate 6 -i build/visual/heat_clock-frame-%d.png -vf "scale=720:-1:flags=lanczos,split[a][b];[a]palettegen=max_colors=96[p];[b][p]paletteuse=dither=none" -loop 0 images/heat_clock.gif;
+  assert(g.code == 0);
+  println("wrote images/heat_clock.gif");
+} else {
+  println("ffmpeg not on PATH: animation frames are in build/visual/heat_clock-frame-*.png");
+}

@@ -1,0 +1,86 @@
+# Convergence study: how fast do finite elements approach the exact answer?
+# -Laplace(u) = 2 pi^2 sin(pi x) sin(pi y) on the unit square has the exact solution
+# u = sin(pi x) sin(pi y). Theory says the L2 error falls like h^(p+1) for elements of
+# degree p, so each halving of the mesh divides it by 4 (P1), 8 (P2) or 16 (P3).
+# The right panel is the engineering view: error per unknown, where higher order wins.
+# Writes images/fem_convergence.png.
+mkdir("build/examples");
+p = _dsl_ cli="lmfluid" install="github:lmctl-ai/lmfluid@latest";
+let src = "2*pi^2*sin(pi*x)*sin(pi*y)";
+let exact = "sin(pi*x)*sin(pi*y)";
+for (order in range(1, 4)) {
+  let t = fluid.matrix(5, 3);
+  let n = 4;
+  for (k in range(0, 5)) {
+    let f = fluid.poisson(fluid.rect(n, n, 1.0, 1.0), order).source(src).dirichlet(0, "0").solve();
+    t.set(k, 0, 1.0 / float(n));
+    t.set(k, 1, float(f.dofs()));
+    t.set(k, 2, f.l2_error(exact));
+    n = n * 2;
+  }
+  # halving h between the two finest meshes divides the error by about 2^(p+1)
+  let rate = t.get(3, 2) / t.get(4, 2);
+  fluid.assert_close(rate, pow(2.0, float(order + 1)), 0.06 * pow(2.0, float(order + 1)));
+  t.save_csv("build/examples/fem_convergence-p" + str(order) + ".csv");
+}
+end _dsl_
+savedsl(p, "build/fem_convergence.dslb");
+r = system ${dsl_cli(p)} --dsl build/fem_convergence.dslb;
+if (r.code != 0) { println(r.stdout); println(r.stderr); }
+assert(r.code == 0);
+
+# observed convergence orders from the two finest meshes, for the legend
+fn rate(o) {
+  rows = csv_parse(read_file("build/examples/fem_convergence-p" + str(o) + ".csv"), false);
+  ratio = num(rows[3][2]) / num(rows[4][2]);
+  # log2 by bisection (lmscript has no log): find a with 2^a = ratio
+  lo = 0.0;
+  hi = 8.0;
+  for (i in range(0, 40)) {
+    mid = 0.5 * (lo + hi);
+    if (pow(2.0, mid) < ratio) { lo = mid; } else { hi = mid; }
+  }
+  return sprintf("%.2f", lo);
+}
+r1 = rate(1);
+r2 = rate(2);
+r3 = rate(3);
+
+mkdir("build/visual");
+mkdir("images");
+v = _dsl_ cli="lmplot" install="github:lmctl-ai/lmplot@latest";
+plot.png("images/fem_convergence.png", 960, 480);
+plot.cmd("set datafile separator ','");
+plot.cmd("set multiplot layout 1,2 title 'Higher-order elements converge faster: -Δu = 2π² sin(πx) sin(πy) on the unit square' font ',14'");
+plot.cmd("set logscale xy");
+plot.cmd("set format y '10^{%L}'");
+plot.cmd("set tics nomirror");
+plot.cmd("set border 3");
+plot.cmd("set grid back lc rgb '#e4e9ef'");
+plot.cmd("set style line 1 lc rgb '#007f86' lw 3 pt 7 ps 2.2");
+plot.cmd("set style line 2 lc rgb '#df6b38' lw 3 pt 5 ps 2.0");
+plot.cmd("set style line 3 lc rgb '#5864a8' lw 3 pt 9 ps 2.4");
+plot.cmd("set style line 9 lc rgb '#9aa5b1' lw 1.5 dt 2");
+plot.cmd("set key top left box opaque");
+plot.cmd("set title 'L2 error against mesh size'");
+plot.cmd("set xlabel 'cell size h'");
+plot.cmd("set ylabel 'L2 error'");
+plot.cmd("set xrange [0.012:0.3]");
+plot.cmd("set yrange [1e-9:30]");
+plot.cmd("set xtics ('1/64' 1.0/64, '1/32' 1.0/32, '1/16' 1.0/16, '1/8' 0.125, '1/4' 0.25)");
+plot.cmd("plot 'build/examples/fem_convergence-p1.csv' using 1:3 with linespoints ls 1 title " + ${"'P1, order " + r1 + "'"} + ", 'build/examples/fem_convergence-p2.csv' using 1:3 with linespoints ls 2 title " + ${"'P2, order " + r2 + "'"} + ", 'build/examples/fem_convergence-p3.csv' using 1:3 with linespoints ls 3 title " + ${"'P3, order " + r3 + "'"} + ", 0.3*x**2 with lines ls 9 notitle, 0.06*x**3 with lines ls 9 notitle, 0.012*x**4 with lines ls 9 title 'h^2, h^3, h^4'");
+plot.cmd("set title 'Accuracy per unknown'");
+plot.cmd("set xlabel 'degrees of freedom'");
+plot.cmd("set xrange [5:100000]");
+plot.cmd("set format x '10^{%L}'");
+plot.cmd("set xtics auto");
+plot.cmd("set key top right box opaque");
+plot.cmd("plot 'build/examples/fem_convergence-p1.csv' using 2:3 with linespoints ls 1 title 'P1', 'build/examples/fem_convergence-p2.csv' using 2:3 with linespoints ls 2 title 'P2', 'build/examples/fem_convergence-p3.csv' using 2:3 with linespoints ls 3 title 'P3'");
+plot.cmd("unset multiplot");
+plot.close();
+end _dsl_
+savedsl(v, "build/visual/fem_convergence.dslb");
+r = system ${dsl_cli(v)} --dsl build/visual/fem_convergence.dslb;
+if (r.code != 0) { println(r.stdout); println(r.stderr); }
+assert(r.code == 0);
+println("wrote images/fem_convergence.png");

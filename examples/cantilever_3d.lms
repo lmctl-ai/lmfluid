@@ -1,0 +1,127 @@
+# The same clamped cantilever as cantilever_beam.lms, rendered in 3D.
+# lmfluid solves 2D elasticity; every finite-element cell is redrawn by lmcad as an
+# extruded quadrilateral at its deformed corner positions (displacement x3) and
+# coloured by bending stress sigma_xx: red in tension on top, blue in compression
+# underneath, white on the neutral axis. Grey rods outline the unloaded beam.
+# lmdraw adds the title, colour scale and numbers. Writes images/cantilever_3d.png.
+mkdir("build/examples");
+mkdir("build/visual");
+p = _dsl_ cli="lmfluid" install="github:lmctl-ai/lmfluid@latest";
+let beam = fluid.elasticity(fluid.rect(80, 8, 10.0, 1.0), 2).lame(0.0, 100.0).force("0", "-0.01", "0").displacement(4, "0", "0", "0").solve();
+# nodes of a 40 x 4 drawing grid: x, y, ux, uy, sigma_xx (sampled just inside the strip)
+let t = fluid.matrix(205, 5);
+for (j in range(0, 5)) {
+  for (i in range(0, 41)) {
+    let x = 0.25 * float(i);
+    let y = 0.25 * float(j);
+    let k = j * 41 + i;
+    t.set(k, 0, x);
+    t.set(k, 1, y);
+    t.set(k, 2, beam.value(x, y, 0.0, 0));
+    t.set(k, 3, beam.value(x, y, 0.0, 1));
+    t.set(k, 4, 200.0 * beam.gradient(clamp(x, 0.3, 9.9), clamp(y, 0.02, 0.98), 0.0, 0, 0));
+  }
+}
+t.save_csv("build/examples/cantilever_3d.csv");
+fluid.assert_close(t.get(4 * 41 + 40, 3), -0.756, 0.002);
+end _dsl_
+savedsl(p, "build/cantilever_3d.dslb");
+r = system ${dsl_cli(p)} --dsl build/cantilever_3d.dslb;
+assert(r.code == 0);
+
+# keyframe rows (the CSV format lmcad reads): t = node index, x/y = deformed position,
+# z unused, r/g/b = stress colour on a blue-white-red scale saturating at |sigma| = 3
+rows = csv_parse(read_file("build/examples/cantilever_3d.csv"), false);
+mag = 3.0;
+keys = "t,x,y,z,r,g,b\n";
+smax = 0.0;
+for (k in range(0, len(rows))) {
+  s = num(rows[k][4]);
+  if (abs(s) > smax) { smax = abs(s); }
+  a = clamp(abs(s) / 3.0, 0.0, 1.0);
+  cr = s > 0.0 ? 1.0 - 0.25 * a : 1.0 - 0.83 * a;
+  cg = s > 0.0 ? 1.0 - 0.78 * a : 1.0 - 0.62 * a;
+  cb = s > 0.0 ? 1.0 - 0.80 * a : 1.0 - 0.33 * a;
+  keys = keys + str(k) + "," + str(num(rows[k][0]) + mag * num(rows[k][2])) + "," + str(num(rows[k][1]) + mag * num(rows[k][3])) + ",0," + str(cr) + "," + str(cg) + "," + str(cb) + "\n";
+}
+write_file("build/examples/cantilever_3d-nodes.csv", keys);
+
+c = _dsl_ cli="lmcad" install="github:lmctl-ai/lmcad@latest";
+scene.background(1.0, 1.0, 1.0);
+scene.supersample(3);
+scene.ambient(0.55);
+scene.directional_light(-0.35, -0.75, -0.55, 0.85);
+scene.fill_light(0.60, 0.20, 0.70, 0.35);
+let n = read_keyframes_csv("build/examples/cantilever_3d-nodes.csv");
+let depth = 1.6;
+for (j in range(0, 4)) {
+  for (i in range(0, 40)) {
+    let a = n.at(j * 41 + i);
+    let b = n.at(j * 41 + i + 1);
+    let cc = n.at((j + 1) * 41 + i + 1);
+    let d = n.at((j + 1) * 41 + i);
+    let sk = scene.sketch();
+    sk.point(a.x(), a.y());
+    sk.point(b.x(), b.y());
+    sk.point(cc.x(), cc.y());
+    sk.point(d.x(), d.y());
+    sk.close();
+    let m = material().color((a.r() + b.r() + cc.r() + d.r()) / 4.0, (a.g() + b.g() + cc.g() + d.g()) / 4.0, (a.b() + b.b() + cc.b() + d.b()) / 4.0).specular(0.25).shininess(20.0);
+    scene.extrude(sk, depth, m);
+  }
+}
+# clamp block and the unloaded outline
+scene.box(0.6, 2.6, 2.4, material().color(0.62, 0.66, 0.71).roughness(0.8)).position(-0.3, 0.5, 0.5 * depth);
+let ghost = material().color(0.55, 0.58, 0.62);
+scene.tube_between(0.0, 1.0, 0.0, 10.0, 1.0, 0.0, 0.025, ghost);
+scene.tube_between(0.0, 1.0, depth, 10.0, 1.0, depth, 0.025, ghost);
+scene.tube_between(0.0, 0.0, depth, 10.0, 0.0, depth, 0.025, ghost);
+scene.tube_between(10.0, 0.0, depth, 10.0, 1.0, depth, 0.025, ghost);
+scene.tube_between(10.0, 1.0, 0.0, 10.0, 1.0, depth, 0.025, ghost);
+scene.camera(19.0, 8.0, 3.4, 22.0, 4.9, -0.45, 0.8);
+scene.render_png("build/visual/cantilever_3d-render.png", 900, 470);
+end _dsl_
+savedsl(c, "build/visual/cantilever_3d-cad.dslb");
+r = system ${dsl_cli(c)} --dsl build/visual/cantilever_3d-cad.dslb;
+if (r.code != 0) { println(r.stdout); println(r.stderr); }
+assert(r.code == 0);
+
+# embed the render in an annotated card (base64 of the PNG as a data URI)
+fn png_uri(path) {
+  # "-i FILE" encodes FILE with both GNU coreutils (-i is ignored when encoding) and macOS
+  e = system base64 -i ${path};
+  if (e.code != 0 || len(e.stdout) < 100) {
+    e = system base64 ${path};
+  }
+  assert(e.code == 0 && len(e.stdout) >= 100, "base64 is needed to embed the 3D render");
+  return "data:image/png;base64," + replace_all(replace_all(e.stdout, "\n", ""), "\r", "");
+}
+uri = png_uri("build/visual/cantilever_3d-render.png");
+tip_txt = "tip deflection " + sprintf("%.3f", 0.0 - num(rows[4 * 41 + 40][3])) + " (drawn 3x)";
+mkdir("images");
+mkdir("build/rendered");
+d = _dsl_ cli="lmdraw" install="github:lmctl-ai/lmdraw@latest";
+scene.canvas(900, 560, "#ffffff");
+scene.image(${uri}, 0.0, 84.0, 900.0, 470.0);
+scene.text(30.0, 40.0, 22.0, "Where a cantilever is stretched and squeezed", "#1d2733").set_attr("font-weight", "700");
+scene.text(30.0, 66.0, 14.0, "Bending stress from 2D finite elements, each cell extruded at its deformed position", "#5a6672");
+let g = scene.linear_gradient("stress", 0.0, 0.0, 1.0, 0.0);
+g.stop(0.0, "#2b5ea8");
+g.stop(0.5, "#ffffff");
+g.stop(1.0, "#bf3833");
+let bar = scene.rect(600.0, 492.0, 240.0, 14.0, "url(#stress)");
+bar.set_attr("stroke", "#9aa5b1");
+scene.text(600.0, 526.0, 12.5, "-3", "#1d2733").set_attr("text-anchor", "middle");
+scene.text(720.0, 526.0, 12.5, "0", "#1d2733").set_attr("text-anchor", "middle");
+scene.text(840.0, 526.0, 12.5, "+3", "#1d2733").set_attr("text-anchor", "middle");
+scene.text(720.0, 484.0, 13.0, "bending stress σxx:  compression  |  tension", "#1d2733").set_attr("text-anchor", "middle");
+scene.text(30.0, 512.0, 13.5, ${tip_txt}, "#1d2733");
+scene.text(30.0, 532.0, 13.5, "grey rods: the unloaded beam", "#5a6672");
+scene.render_png("build/rendered/cantilever_3d.png", 900, 560, 1);
+end _dsl_
+savedsl(d, "build/visual/cantilever_3d-draw.dslb");
+r = system ${dsl_cli(d)} --dsl build/visual/cantilever_3d-draw.dslb;
+if (r.code != 0) { println(r.stdout); println(r.stderr); }
+assert(r.code == 0);
+copy_file("build/rendered/cantilever_3d.png", "images/cantilever_3d.png");
+println("wrote images/cantilever_3d.png");

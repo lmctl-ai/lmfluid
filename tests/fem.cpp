@@ -205,8 +205,53 @@ static void higher_order_and_body_force() {
      "3D elasticity affine patch");
 }
 
+// Field::gradient: exact for fields the element space contains, the beam-theory slope
+// and stress for a cantilever, and argument checks.
+static void gradients() {
+  Problem p;
+  p.mesh = Mesh::rect(4, 4, 1.0, 1.0);
+  p.order = 2;
+  p.source("-4").dirichlet(0, "x^2+y^2");
+  Field f = p.solve();
+  ok(std::abs(f.gradient(0.3, 0.7, 0, 0, 0) - 0.6) < 1e-9 &&
+         std::abs(f.gradient(0.3, 0.7, 0, 0, 1) - 1.4) < 1e-9,
+     "scalar gradient of x^2+y^2");
+  ok(std::abs(f.gradient(1.0, 1.0, 0, 0, 0) - 2.0) < 1e-9,
+     "gradient on the boundary corner");
+  Problem e;
+  e.kind = "elasticity";
+  e.mesh = Mesh::rect(3, 3, 1.0, 1.0);
+  e.displacement(0, "0.1*x+0.05*y", "0.03*x-0.04*y", "0");
+  Field u = e.solve();
+  ok(std::abs(u.gradient(0.4, 0.6, 0, 0, 1) - 0.05) < 1e-9 &&
+         std::abs(u.gradient(0.4, 0.6, 0, 1, 0) - 0.03) < 1e-9 &&
+         std::abs(u.gradient(0.4, 0.6, 0, 1, 1) + 0.04) < 1e-9,
+     "vector gradient of an affine displacement");
+  // Clamped cantilever L=10, h=1, E=200 (nu=0), q=0.01: Euler-Bernoulli tip slope
+  // q L^3/(6 E I) = 0.1 and root bending stress 3 q (L-x)^2/h^2.
+  Problem b;
+  b.kind = "elasticity";
+  b.mesh = Mesh::rect(80, 8, 10.0, 1.0);
+  b.order = 2;
+  b.lame(0.0, 100.0).force("0", "-0.01", "0").displacement(4, "0", "0", "0");
+  Field w = b.solve();
+  ok(std::abs(w.value(10.0, 0.5, 0, 1) + 0.756) < 0.002,
+     "cantilever tip deflection (Timoshenko 0.7560)");
+  ok(std::abs(w.gradient(10.0, 0.5, 0, 1, 0) + 0.1) < 0.001,
+     "cantilever tip slope");
+  ok(std::abs(200.0 * w.gradient(2.5, 1.0, 0, 0, 0) - 1.6875) < 0.01,
+     "cantilever top-fibre bending stress");
+  ok(throws_bad([&] { (void)f.gradient(0.5, 0.5, 0, 0, 2); }),
+     "2D gradient direction 2 rejected");
+  ok(throws_bad([&] { (void)f.gradient(0.5, 0.5, 0, 1, 0); }),
+     "scalar gradient component 1 rejected");
+  ok(throws_bad([&] { (void)f.gradient(1.5, 0.5, 0, 0, 0); }),
+     "gradient outside the mesh rejected");
+}
+
 int main() {
   try {
+    gradients();
     convergence();
     scalar_polynomial_and_coefficient();
     heat_time_and_boundary();

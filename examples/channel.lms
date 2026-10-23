@@ -1,6 +1,22 @@
+# Plane Poiseuille flow: the textbook parabola, and how long it takes to appear.
+# Fluid between two plates (gap H = 12 lattice cells, periodic along the channel) is
+# pushed by a uniform body force g, like gravity in a vertical pipe or a pressure drop.
+# Steady state: u(y) = g y (H - y) / (2 nu). Start-up from rest follows the series
+# u_c(t) = u_max [1 - 32/pi^3 sum_odd (-1)^((n-1)/2) / n^3 exp(-n^2 pi^2 nu t / H^2)].
+# lmdraw draws the set-up, the profile and the start-up curve. Writes images/channel.png.
 mkdir("build/examples");
 p = _dsl_ cli="lmfluid" install="github:lmctl-ai/lmfluid@latest";
-let flow = fluid.channel(48, 12, 0.1, 0.00001).run(3000);
+let flow = fluid.channel(48, 12, 0.1, 0.00001);
+# centre-line velocity every 100 steps from rest
+let hist = fluid.matrix(21, 2);
+for (k in range(0, 21)) {
+  if (k > 0) {
+    flow.run(100);
+  }
+  hist.set(k, 0, float(flow.steps()));
+  hist.set(k, 1, 0.5 * (flow.velocity(24, 5, 0) + flow.velocity(24, 6, 0)));
+}
+hist.save_csv("build/examples/channel-startup.csv");
 fluid.assert_true(flow.mass() > 0.0);
 fluid.assert_close(flow.velocity(24, 6, 0), 0.0018, 0.00002);
 fluid.assert_close(flow.velocity(24, 6, 1), 0.0, 0.000001);
@@ -8,31 +24,122 @@ flow.sample().save_csv("build/examples/channel.csv");
 end _dsl_
 savedsl(p, "build/channel.dslb");
 r = system ${dsl_cli(p)} --dsl build/channel.dslb;
+if (r.code != 0) { println(r.stdout); println(r.stderr); }
 assert(r.code == 0);
 
-mkdir("build/visual");
-mkdir("images");
-v = _dsl_ cli="lmplot" install="github:lmctl-ai/lmplot@latest";
-plot.png("images/channel.png",900,520);
-plot.cmd("set datafile separator ','");
-plot.cmd("set border 3");
-plot.cmd("set lmargin 14");
-plot.cmd("set rmargin 12");
-plot.cmd("set tics nomirror");
-plot.cmd("set grid back lc rgb '#e4e9ef'");
-plot.cmd("set key outside top center horizontal");
-plot.cmd("set style line 1 lc rgb '#007f86' lw 3");
-plot.cmd("set style line 2 lc rgb '#df6b38' lw 3");
-plot.cmd("set style line 3 lc rgb '#5864a8' lw 3");
-plot.cmd("set title 'Plane Poiseuille flow: a parabola between stationary walls'");
-plot.cmd("set xlabel 'Cross-channel y (lattice units)'");
-plot.cmd("set ylabel 'Streamwise velocity (lattice units)'");
-plot.cmd("plot 'build/examples/channel.csv' using ($1==0.5?$2:1/0):4 with points pt 7 ps 1 lc rgb '#007f86' title 'D2Q9 samples', 0.00001*x*(12-x)/(2*0.1) with lines ls 2 title 'Continuum profile'");
-plot.close();
-end _dsl_
-savedsl(v,"build/visual/channel.dslb");
-r = system ${dsl_cli(v)} --dsl build/visual/channel.dslb;
-if (r.code!=0) { println(r.stdout); println(r.stderr); }
-assert(r.code==0);
+pi = 3.141592653589793;
+g = 0.00001;
+nu = 0.1;
+H = 12.0;
+umax = g * H * H / (8.0 * nu);
+fn ex(x) {
+  # exp(x) for x <= 0: a Taylor series on x / 64, squared six times
+  if (x < -40.0) { return 0.0; }
+  y = x / 64.0;
+  s = 1.0;
+  term = 1.0;
+  for (k in range(1, 12)) { term = term * y / k; s = s + term; }
+  for (k in range(0, 6)) { s = s * s; }
+  return s;
+}
+fn uc(t) {
+  s = 0.0;
+  for (m in range(0, 30)) {
+    n = 2 * m + 1;
+    sg = m % 2 == 0 ? 1.0 : -1.0;
+    s = s + sg / (n * n * n) * ex(0.0 - n * n * pi * pi * nu * t / (H * H));
+  }
+  return umax * (1.0 - 32.0 / (pi * pi * pi) * s);
+}
+fn R(v) { return str(round(v * 10.0) / 10.0); }
+fn dot(x, y) { return "M " + R(x - 4.5) + " " + R(y) + " a 4.5 4.5 0 1 0 9 0 a 4.5 4.5 0 1 0 -9 0 "; }
+# profile panel: u in [0, 0.002] -> [560, 900] px; y in [0, 12] -> [300, 110] px
+fn PU(u) { return 560.0 + u / 0.002 * 340.0; }
+fn PY(y) { return 300.0 - y / 12.0 * 190.0; }
+# start-up panel: t in [0, 2000] -> [560, 900]; u in [0, 0.002] -> [520, 380]
+fn ST(t) { return 560.0 + t / 2000.0 * 340.0; }
+fn SU(u) { return 520.0 - u / 0.002 * 140.0; }
+rows = csv_parse(read_file("build/examples/channel.csv"), false);
+prof_exact = "";
+for (i in range(0, 61)) {
+  y = 0.2 * i;
+  prof_exact = prof_exact + (i == 0 ? "M " : " L ") + R(PU(g * y * (H - y) / (2.0 * nu))) + " " + R(PY(y));
+}
+prof_dots = "";
+for (k in range(0, len(rows))) {
+  if (num(rows[k][0]) == 24.5) { prof_dots = prof_dots + dot(PU(num(rows[k][3])), PY(num(rows[k][1]))); }
+}
+hist = csv_parse(read_file("build/examples/channel-startup.csv"), false);
+st_exact = "";
+for (i in range(0, 101)) {
+  t = 20.0 * i;
+  st_exact = st_exact + (i == 0 ? "M " : " L ") + R(ST(t)) + " " + R(SU(uc(t)));
+}
+st_dots = "";
+for (k in range(0, len(hist))) {
+  st_dots = st_dots + dot(ST(num(hist[k][0])), SU(num(hist[k][1])));
+}
+tau_txt = "slowest mode decays in H²/(π²ν) = " + sprintf("%.0f", H * H / (pi * pi * nu)) + " steps";
+umax_txt = "u_max = gH²/8ν = " + sprintf("%.5f", umax);
 
+mkdir("images");
+mkdir("build/visual");
+mkdir("build/rendered");
+d = _dsl_ cli="lmdraw" install="github:lmctl-ai/lmdraw@latest";
+scene.canvas(960, 580, "#ffffff");
+scene.text(36.0, 44.0, 23.0, "Poiseuille flow: a body force makes a parabola", "#1d2733").set_attr("font-weight", "700");
+scene.text(36.0, 70.0, 14.5, "D2Q9 lattice Boltzmann between two plates, against the exact steady profile and start-up series", "#5a6672");
+# sketch: walls, periodic ends, body force, velocity profile
+scene.rect(60.0, 120.0, 400.0, 14.0, "#c9d1da");
+scene.rect(60.0, 316.0, 400.0, 14.0, "#c9d1da");
+for (k in range(0, 20)) {
+  scene.line(64.5 + float(k) * 20.0, 134.0, 74.5 + float(k) * 20.0, 120.0, "#7d8a97", 1.2);
+  scene.line(64.5 + float(k) * 20.0, 330.0, 74.5 + float(k) * 20.0, 316.0, "#7d8a97", 1.2);
+}
+scene.text(260.0, 112.0, 13.0, "no-slip wall", "#5a6672").set_attr("text-anchor", "middle");
+scene.text(260.0, 350.0, 13.0, "no-slip wall", "#5a6672").set_attr("text-anchor", "middle");
+let left = scene.line(60.0, 134.0, 60.0, 316.0, "#5864a8", 1.5);
+left.set_attr("stroke-dasharray", "5 4");
+let right = scene.line(460.0, 134.0, 460.0, 316.0, "#5864a8", 1.5);
+right.set_attr("stroke-dasharray", "5 4");
+scene.text(60.0, 372.0, 12.5, "periodic: what leaves on the right re-enters on the left", "#5864a8");
+let prof = scene.path("M 200 134 Q 380 225 200 316", "none", "#007f86", 2.5);
+# the quadratic Bezier above is x = 200 + 360 t (1 - t), y = 134 + 182 t
+for (k in range(1, 9)) {
+  let t = float(k) / 9.0;
+  scene.arrow(200.0, 134.0 + 182.0 * t, 200.0 + 360.0 * t * (1.0 - t), 134.0 + 182.0 * t, "#007f86", 1.6);
+}
+scene.line(200.0, 134.0, 200.0, 316.0, "#17324d", 1.2);
+scene.text(300.0, 236.0, 14.0, "u(y)", "#007f86");
+scene.arrow(370.0, 210.0, 420.0, 210.0, "#df6b38", 2.5);
+scene.arrow(370.0, 240.0, 420.0, 240.0, "#df6b38", 2.5);
+scene.text(395.0, 196.0, 13.0, "body force g", "#b4532a").set_attr("text-anchor", "middle");
+scene.line(80.0, 134.0, 80.0, 316.0, "#9aa5b1", 1.0);
+scene.text(88.0, 230.0, 13.0, "H = 12", "#5a6672");
+scene.text(60.0, 420.0, 14.0, "g = 1e-5,  ν = 0.1 (lattice units)", "#1d2733");
+scene.text(60.0, 444.0, 14.0, ${umax_txt}, "#1d2733");
+scene.text(60.0, 468.0, 14.0, ${tau_txt}, "#1d2733");
+# profile panel
+scene.axes(560.0, 110.0, 340.0, 190.0, 0.0, 0.002, 0.0, 12.0, 4, "#5a6672");
+scene.text(560.0, 98.0, 15.0, "Steady velocity across the gap", "#1d2733").set_attr("font-weight", "700");
+scene.path(${prof_exact}, "none", "#df6b38", 2.5);
+scene.path(${prof_dots}, "#007f86", "none", 1.0);
+scene.text(730.0, 334.0, 12.5, "streamwise velocity u", "#5a6672").set_attr("text-anchor", "middle");
+# start-up panel
+scene.axes(560.0, 380.0, 340.0, 140.0, 0.0, 2000.0, 0.0, 0.002, 4, "#5a6672");
+scene.text(560.0, 368.0, 15.0, "Centre-line speed after switching on g", "#1d2733").set_attr("font-weight", "700");
+scene.path(${st_exact}, "none", "#df6b38", 2.5);
+scene.path(${st_dots}, "#007f86", "none", 1.0);
+scene.text(730.0, 556.0, 12.5, "time step", "#5a6672").set_attr("text-anchor", "middle");
+scene.circle(60.0, 520.0, 5.0, "#007f86");
+scene.text(74.0, 525.0, 13.5, "lattice Boltzmann", "#1d2733");
+scene.line(52.0, 548.0, 68.0, 548.0, "#df6b38", 3.0);
+scene.text(74.0, 553.0, 13.5, "exact solution", "#1d2733");
+scene.render_png("build/rendered/channel.png", 960, 580, 1);
+end _dsl_
+savedsl(d, "build/visual/channel-draw.dslb");
+r = system ${dsl_cli(d)} --dsl build/visual/channel-draw.dslb;
+if (r.code != 0) { println(r.stdout); println(r.stderr); }
+assert(r.code == 0);
+copy_file("build/rendered/channel.png", "images/channel.png");
 println("wrote images/channel.png");

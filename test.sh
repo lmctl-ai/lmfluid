@@ -128,7 +128,29 @@ expect_error no_convergence 'let f = fluid.poisson(fluid.rect(16,16,1.0,1.0),1).
 deep="$(printf '(%.0s' $(seq 300))1$(printf ')%.0s' $(seq 300))"
 expect_error deep_expression "let x = fluid.eval(\"$deep\");" "nested too deeply"
 expect_error huge_number 'let x = fluid.eval("1e400");' "out of range"
-ok "errors stop with exit 3 and clear messages (20 cases)"
+expect_error obstacle_full 'let f = fluid.periodic(4,4,0.1).obstacle("1");' "no fluid"
+expect_error gradient_direction 'let f = fluid.poisson(fluid.rect(4,4,1.0,1.0),1).solve(); let g = f.gradient(0.5,0.5,2);' "direction"
+expect_error matrix_set 'let m = fluid.matrix(2,2); m.set(5,0,1.0);' "range"
+expect_error matrix_nan 'let m = fluid.matrix(2,2); m.set(0,0,sqrt(-1.0));' "finite"
+expect_error matrix_big 'let m = fluid.matrix(1000000,1000);' "10 million"
+ok "errors stop with exit 3 and clear messages (25 cases)"
+
+# Stability guards: tau near 0.5 and Mach above 0.3 run, but warn on stderr (JSON stays clean).
+expect_warning() { # name, snippet, expected stderr fragment
+  cat >"$WORK/$1.lms" <<LMS
+p = _dsl_ cli="lmfluid";
+$2
+end _dsl_
+savedsl(p, "$WORK/$1.dslb");
+LMS
+  "$LMSCRIPT" "$WORK/$1.lms" >/dev/null 2>"$WORK/$1.cerr" || { cat "$WORK/$1.cerr" >&2; fail "$1 compile"; }
+  "$HOST" --dsl "$WORK/$1.dslb" >"$WORK/$1.out" 2>"$WORK/$1.err" || fail "$1: a warning must not fail the run"
+  grep -q '"ok": true' "$WORK/$1.out" || fail "$1: stdout is not the JSON result"
+  grep -q "$3" "$WORK/$1.err" || fail "$1: stderr lacks '$3'"
+}
+expect_warning tau_warning 'let f = fluid.periodic(8,8,0.001).run(1);' "close to 0.5"
+expect_warning mach_warning 'let f = fluid.periodic(8,8,0.1).init("0.2","0").run(1); fluid.assert_true(f.mach() > 0.3);' "Mach number"
+ok "LBM stability warnings go to stderr"
 
 # Memory budget: a runaway allocation loop stops with a run error (exit 3, message on stderr and in
 # the JSON line) instead of exhausting the machine. A small budget everywhere; on Linux also the

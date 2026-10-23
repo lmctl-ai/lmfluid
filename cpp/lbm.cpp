@@ -5,6 +5,7 @@
 #include <cfloat>
 #include <climits>
 #include <cmath>
+#include <iostream>
 #include <limits>
 #include <numeric>
 #include <stdexcept>
@@ -27,12 +28,21 @@ struct LbmData {
   double nu = 0, force_x = 0, lid = 0;
   bool x_periodic = false, y_periodic = false, moving_top = false;
   std::vector<double> f, next, rho, ux, uy;
+  // solid[c] != 0 marks an obstacle cell: no collision, halfway bounceback on
+  // every fluid link that points into it, zero velocity and unit density.
+  std::vector<char> solid;
+  bool any_solid = false, warned_mach = false;
+  // momentum exchanged with obstacle cells during the most recent step, and its
+  // mean over the most recent run() call (which filters acoustic noise)
+  double solid_fx = 0, solid_fy = 0, mean_fx = 0, mean_fy = 0;
   int nsteps = 0;
 
   std::size_t cell(int x, int y) const { return (std::size_t)y * nx + x; }
   std::size_t at(int x, int y, int q) const { return cell(x, y) * Q + q; }
   void validate_state() const {
     for (std::size_t k = 0; k < rho.size(); ++k) {
+      if (solid[k])
+        continue;
       if (!(std::isfinite(rho[k]) && rho[k] > 0 && std::isfinite(ux[k]) &&
             std::isfinite(uy[k])))
         throw std::runtime_error("LBM became numerically unstable (non-finite "
@@ -47,6 +57,11 @@ struct LbmData {
     for (int y = 0; y < ny; ++y)
       for (int x = 0; x < nx; ++x) {
         std::size_t c = cell(x, y);
+        if (solid[c]) {
+          rho[c] = 1;
+          ux[c] = uy[c] = 0;
+          continue;
+        }
         double d = 0, px = 0, py = 0;
         for (int q = 0; q < Q; ++q) {
           double z = f[at(x, y, q)];
@@ -71,13 +86,17 @@ struct LbmData {
       v -= 6.0 * wt[q] * rho[cell(x, y)] * ex[q] * lid;
     next[at(x, y, opp[q])] += v;
   }
+  // rho/ux/uy are current on entry: construction, init(), obstacle() and the
+  // end of every step() refresh them.
   void step() {
-    macros();
     const double tau = 0.5 + 3.0 * nu, omega = 1.0 / tau;
     std::fill(next.begin(), next.end(), 0.0);
+    double fx = 0, fy = 0;
     for (int y = 0; y < ny; ++y)
       for (int x = 0; x < nx; ++x) {
         std::size_t c = cell(x, y);
+        if (solid[c])
+          continue;
         double d = rho[c], vx = ux[c], vy = uy[c];
         for (int q = 0; q < Q; ++q) {
           double eu = ex[q] * vx + ey[q] * vy;
@@ -104,12 +123,25 @@ struct LbmData {
             if (yy >= ny)
               yy -= ny;
           }
-          if (!outside(xx, yy))
-            next[at(xx, yy, q)] += post;
-          else
+          if (outside(xx, yy))
             reflected(x, y, q, post);
+          else if (solid[cell(xx, yy)]) {
+            // Stationary halfway bounceback; the obstacle receives 2*f*e.
+            next[at(x, y, opp[q])] += post;
+            fx += 2.0 * post * ex[q];
+            fy += 2.0 * post * ey[q];
+          } else
+            next[at(xx, yy, q)] += post;
         }
       }
+    // Keep solid populations at rest so their (unused) values stay finite.
+    if (any_solid)
+      for (std::size_t c = 0; c < solid.size(); ++c)
+        if (solid[c])
+          for (int q = 0; q < Q; ++q)
+            next[c * Q + q] = wt[q];
+    solid_fx = fx;
+    solid_fy = fy;
     f.swap(next);
     ++nsteps;
     macros();
@@ -129,6 +161,10 @@ std::shared_ptr<LbmData> make(int nx, int ny, double nu) {
       0.5 + 3.0 * nu <= 0.5)
     throw std::invalid_argument(
         "LBM viscosity must be finite, positive, and representable in tau");
+  if (0.5 + 3.0 * nu < 0.51)
+    std::cerr << "lmfluid: warning: LBM relaxation time tau=" << 0.5 + 3.0 * nu
+              << " is close to 0.5; BGK is fragile there (raise the viscosity "
+                 "or refine the grid)\n";
   auto d = std::make_shared<LbmData>();
   d->nx = nx;
   d->ny = ny;
@@ -139,6 +175,7 @@ std::shared_ptr<LbmData> make(int nx, int ny, double nu) {
   d->rho.assign(n, 1.0);
   d->ux.assign(n, 0.0);
   d->uy.assign(n, 0.0);
+  d->solid.assign(n, 0);
   for (std::size_t c = 0; c < n; ++c)
     for (int q = 0; q < Q; ++q)
       d->f[c * Q + q] = wt[q];
@@ -186,11 +223,14 @@ LBM &LBM::init(const std::string &sx, const std::string &sy) {
   if (!data)
     throw std::logic_error("LBM object is empty");
   data->nsteps = 0;
+  data->mean_fx = data->mean_fy = 0;
   Expr exx(sx, {"x", "y", "t"}), exy(sy, {"x", "y", "t"});
   double v[3];
   for (int y = 0; y < data->ny; ++y)
     for (int x = 0; x < data->nx; ++x) {
       std::size_t c = data->cell(x, y);
+      if (data->solid[c])
+        continue;
       v[0] = x + 0.5;
       v[1] = y + 0.5;
       v[2] = data->nsteps;
@@ -223,9 +263,123 @@ LBM &LBM::run(int steps) {
     throw std::invalid_argument("LBM step count would overflow");
   if ((long double)steps * data->nx * data->ny > 500000000.0L)
     throw std::invalid_argument("LBM run exceeds work limit");
-  for (int i = 0; i < steps; ++i)
+  double sx = 0, sy = 0;
+  for (int i = 0; i < steps; ++i) {
     data->step();
+    sx += data->solid_fx;
+    sy += data->solid_fy;
+  }
+  if (steps > 0) {
+    data->mean_fx = sx / steps;
+    data->mean_fy = sy / steps;
+  }
+  if (!data->warned_mach && mach() > 0.3) {
+    data->warned_mach = true;
+    std::cerr << "lmfluid: warning: LBM Mach number reached " << mach()
+              << " (above 0.3, speed above 0.17 lattice units); "
+                 "compressibility errors grow, so lower the speeds\n";
+  }
   return *this;
+}
+LBM &LBM::obstacle(const std::string &mask) {
+  if (!data)
+    throw std::logic_error("LBM object is empty");
+  Expr e(mask, {"x", "y"});
+  double v[2];
+  std::size_t fluid = 0;
+  std::vector<char> next = data->solid;
+  for (int y = 0; y < data->ny; ++y)
+    for (int x = 0; x < data->nx; ++x) {
+      v[0] = x + 0.5;
+      v[1] = y + 0.5;
+      double m = e.eval(v);
+      if (!std::isfinite(m))
+        throw std::invalid_argument("LBM obstacle expression is not finite");
+      std::size_t c = data->cell(x, y);
+      if (m > 0)
+        next[c] = 1;
+      fluid += !next[c];
+    }
+  if (fluid == 0)
+    throw std::invalid_argument("LBM obstacle leaves no fluid cells");
+  data->solid.swap(next);
+  data->any_solid = std::find(data->solid.begin(), data->solid.end(), 1) !=
+                    data->solid.end();
+  for (std::size_t c = 0; c < data->solid.size(); ++c)
+    if (data->solid[c])
+      for (int q = 0; q < Q; ++q)
+        data->f[c * Q + q] = wt[q];
+  data->macros();
+  return *this;
+}
+bool LBM::is_solid(int ix, int iy) const {
+  if (!data)
+    throw std::logic_error("LBM object is empty");
+  if (ix < 0 || ix >= data->nx || iy < 0 || iy >= data->ny)
+    throw std::out_of_range("LBM solid index out of range");
+  return data->solid[data->cell(ix, iy)] != 0;
+}
+int LBM::solid_cells() const {
+  if (!data)
+    throw std::logic_error("LBM object is empty");
+  return (int)std::count(data->solid.begin(), data->solid.end(), 1);
+}
+double LBM::solid_force(int component) const {
+  if (!data)
+    throw std::logic_error("LBM object is empty");
+  if (component < 0 || component > 1)
+    throw std::out_of_range("LBM force component must be 0 or 1");
+  return component ? data->mean_fy : data->mean_fx;
+}
+double LBM::tau() const {
+  if (!data)
+    throw std::logic_error("LBM object is empty");
+  return 0.5 + 3.0 * data->nu;
+}
+double LBM::mach() const { return max_speed() * std::sqrt(3.0); }
+Matrix LBM::vorticity() const {
+  if (!data)
+    throw std::logic_error("LBM object is empty");
+  const LbmData &d = *data;
+  // Central differences; a wall or obstacle neighbour contributes its no-slip
+  // zero velocity at half a cell, so the stencil stays one-sided there.
+  auto vel = [&](int x, int y, int comp, bool &wall) -> double {
+    wall = false;
+    if (d.x_periodic)
+      x = (x + d.nx) % d.nx;
+    if (d.y_periodic)
+      y = (y + d.ny) % d.ny;
+    if (d.outside(x, y)) {
+      wall = true;
+      // only the moving lid has a nonzero wall velocity
+      return (d.moving_top && y >= d.ny && comp == 0) ? d.lid : 0.0;
+    }
+    std::size_t c = d.cell(x, y);
+    if (d.solid[c]) {
+      wall = true;
+      return 0.0;
+    }
+    return comp ? d.uy[c] : d.ux[c];
+  };
+  auto deriv = [&](int x, int y, int dx, int dy, int comp) {
+    bool wp, wm, w0;
+    double up = vel(x + dx, y + dy, comp, wp), um = vel(x - dx, y - dy, comp, wm);
+    double u0 = vel(x, y, comp, w0);
+    double hp = wp ? 0.5 : 1.0, hm = wm ? 0.5 : 1.0;
+    return (up - u0) / hp * hm / (hp + hm) + (u0 - um) / hm * hp / (hp + hm);
+  };
+  Matrix m;
+  m.rows = d.nx * d.ny;
+  m.cols = 4;
+  m.data.reserve((std::size_t)m.rows * m.cols);
+  for (int y = 0; y < d.ny; ++y)
+    for (int x = 0; x < d.nx; ++x) {
+      std::size_t c = d.cell(x, y);
+      double w = d.solid[c] ? 0.0 : deriv(x, y, 1, 0, 1) - deriv(x, y, 0, 1, 0);
+      m.data.insert(m.data.end(),
+                    {(double)x + 0.5, (double)y + 0.5, w, d.solid[c] ? 1.0 : 0.0});
+    }
+  return m;
 }
 double LBM::velocity(int ix, int iy, int component) const {
   if (!data)
@@ -247,7 +401,11 @@ double LBM::density(int ix, int iy) const {
 double LBM::mass() const {
   if (!data)
     throw std::logic_error("LBM object is empty");
-  return std::accumulate(data->rho.begin(), data->rho.end(), 0.0);
+  double m = 0;
+  for (std::size_t i = 0; i < data->rho.size(); ++i)
+    if (!data->solid[i])
+      m += data->rho[i];
+  return m;
 }
 double LBM::max_speed() const {
   if (!data)

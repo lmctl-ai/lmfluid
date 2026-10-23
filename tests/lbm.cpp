@@ -137,8 +137,63 @@ static void ghia_cavity() {
             << " v " << dv << " (30k steps, " << sec << " s)\n";
 }
 
+// Obstacles: walls built from solid cells reproduce the channel walls exactly, the force
+// on the solids balances the body force on the fluid, and vorticity is -du/dy.
+static void obstacles() {
+  constexpr int nx = 8, ny = 12;
+  constexpr double nu = .1, g = 1e-5;
+  auto plain = LBM::channel(nx, ny, nu, g);
+  auto boxed = LBM::channel(nx, ny + 2, nu, g);
+  boxed.obstacle("max(0.9-y, y-" + std::to_string(ny + 1.1) + ")");
+  check(boxed.solid_cells() == 2 * nx && boxed.is_solid(3, 0) &&
+            boxed.is_solid(3, ny + 1) && !boxed.is_solid(3, 1),
+        "obstacle rows marked solid");
+  boxed.init("0", "0");
+  plain.run(4000);
+  boxed.run(4000);
+  double dev = 0;
+  for (int y = 0; y < ny; ++y)
+    dev = std::max(dev, std::abs(plain.velocity(3, y, 0) -
+                                 boxed.velocity(3, y + 1, 0)));
+  check(dev < 1e-12, "solid-cell walls equal domain walls");
+  check(boxed.velocity(3, 0, 0) == 0 && boxed.density(3, 0) == 1,
+        "solid cells report rest");
+  check(rel(boxed.mass(), nx * ny) < 1e-9, "fluid mass excludes solids");
+  // steady momentum balance: g * fluid mass = force on the solids
+  boxed.run(20000).run(10);
+  check(rel(boxed.solid_force(0), g * boxed.mass()) < 1e-3,
+        "solid force balances the body force");
+  check(std::abs(boxed.solid_force(1)) < 1e-12, "no lift on symmetric walls");
+  auto w = boxed.vorticity();
+  check(w.rows == nx * (ny + 2) && w.cols == 4, "vorticity matrix shape");
+  // row for (x=3, y=4): -du/dy = -g (H - 2 y') / (2 nu) with y' = 3.5 from the wall
+  double expected = -g * (ny - 2 * 3.5) / (2 * nu);
+  check(std::abs(w.get(4 * nx + 3, 2) - expected) < 0.02 * std::abs(expected),
+        "Poiseuille vorticity");
+  check(w.get(0 * nx + 3, 3) == 1.0 && w.get(4 * nx + 3, 3) == 0.0,
+        "vorticity solid flag");
+  check(std::abs(boxed.tau() - 0.8) < 1e-15, "tau = 0.5 + 3 nu");
+  check(std::abs(boxed.mach() - boxed.max_speed() * std::sqrt(3.0)) < 1e-15,
+        "Mach number");
+  check(throws_bad([] { (void)LBM::periodic(4, 4, .1).obstacle("1"); }),
+        "obstacle filling the domain rejected");
+  check(throws_bad([] { (void)LBM::periodic(4, 4, .1).obstacle("1/0"); }),
+        "non-finite obstacle expression rejected");
+  // a cylinder in a periodic channel feels drag along the flow, and a uniform
+  // vorticity check: a solid body rotation has vorticity 2 Omega
+  auto cyl = LBM::channel(40, 20, .05, 1e-5);
+  cyl.obstacle("9-(x-10)^2-(y-10)^2").run(2000);
+  check(cyl.solid_force(0) > 0, "drag points downstream");
+  auto rot = LBM::periodic(16, 16, .1);
+  rot.init("-0.001*(y-8)", "0.001*(x-8)");
+  auto r = rot.vorticity();
+  check(std::abs(r.get(8 * 16 + 8, 2) - 0.002) < 1e-12,
+        "solid-body rotation vorticity");
+}
+
 int main() {
   try {
+    obstacles();
     basic_and_determinism();
     shear_decay();
     poiseuille();

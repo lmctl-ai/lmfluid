@@ -1,0 +1,135 @@
+# A self-heating block with cold faces: where does the heat pile up?
+# Uniform internal heating (think of a concrete pour releasing heat of hydration, or a
+# battery cell) in a unit cube whose six faces are held at 0. Steady state solves
+# -Laplace(T) = 1; the series solution gives a core temperature of 0.0562128.
+# lmfluid solves it in 3D with P2 hexahedra, lmcad draws the block as voxels with one
+# octant cut away to show the hot core, and lmdraw labels the render.
+# Writes images/heated_cube.png.
+mkdir("build/examples");
+mkdir("build/visual");
+p = _dsl_ cli="lmfluid" install="github:lmctl-ai/lmfluid@latest";
+let f = fluid.poisson(fluid.box(8, 8, 8, 1.0, 1.0, 1.0), 2).source("1").solve();
+fluid.assert_close(f.value(0.5, 0.5, 0.5, 0), 0.0562128, 0.0002);
+let probe = fluid.matrix(1, 2);
+probe.set(0, 0, f.value(0.5, 0.5, 0.5, 0));
+probe.set(0, 1, f.value(0.25, 0.5, 0.5, 0));
+probe.save_csv("build/examples/heated_cube-probe.csv");
+# temperature at the centres of a 12^3 voxel grid
+let n = 12;
+let t = fluid.matrix(n * n * n, 4);
+for (k in range(0, n)) {
+  for (j in range(0, n)) {
+    for (i in range(0, n)) {
+      let row = (k * n + j) * n + i;
+      let x = (float(i) + 0.5) / float(n);
+      let y = (float(j) + 0.5) / float(n);
+      let z = (float(k) + 0.5) / float(n);
+      t.set(row, 0, x);
+      t.set(row, 1, y);
+      t.set(row, 2, z);
+      t.set(row, 3, f.value(x, y, z, 0));
+    }
+  }
+}
+t.save_csv("build/examples/heated_cube.csv");
+end _dsl_
+savedsl(p, "build/heated_cube.dslb");
+r = system ${dsl_cli(p)} --dsl build/heated_cube.dslb;
+if (r.code != 0) { println(r.stdout); println(r.stderr); }
+assert(r.code == 0);
+
+# Keep only voxels a viewer can see: outside the cut-away octant (all indices >= 6) and
+# touching either the cube surface or the cut. Colour: navy -> teal -> pale yellow.
+rows = csv_parse(read_file("build/examples/heated_cube.csv"), false);
+n = 12;
+h = n / 2;
+fn removed(i, j, k) { return i >= h && j >= h && k >= h; }
+fn gone(i, j, k) { return i < 0 || j < 0 || k < 0 || i >= n || j >= n || k >= n || removed(i, j, k); }
+fn lerp3(a, b, s) { return a + (b - a) * s; }
+keys = "t,x,y,z,r,g,b\n";
+count = 0;
+for (k in range(0, n)) {
+  for (j in range(0, n)) {
+    for (i in range(0, n)) {
+      if (!removed(i, j, k)) {
+        if (gone(i - 1, j, k) || gone(i + 1, j, k) || gone(i, j - 1, k) || gone(i, j + 1, k) || gone(i, j, k - 1) || gone(i, j, k + 1)) {
+          row = rows[(k * n + j) * n + i];
+          s = clamp(num(row[3]) / 0.0562128, 0.0, 1.0);
+          cr = s < 0.5 ? lerp3(0.09, 0.08, s * 2.0) : lerp3(0.08, 1.0, s * 2.0 - 1.0);
+          cg = s < 0.5 ? lerp3(0.20, 0.60, s * 2.0) : lerp3(0.60, 0.92, s * 2.0 - 1.0);
+          cb = s < 0.5 ? lerp3(0.30, 0.58, s * 2.0) : lerp3(0.58, 0.55, s * 2.0 - 1.0);
+          keys = keys + str(count) + "," + row[0] + "," + row[1] + "," + row[2] + "," + str(cr) + "," + str(cg) + "," + str(cb) + "\n";
+          count = count + 1;
+        }
+      }
+    }
+  }
+}
+write_file("build/examples/heated_cube-voxels.csv", keys);
+probe = csv_parse(read_file("build/examples/heated_cube-probe.csv"), false);
+core = num(probe[0][0]);
+
+c = _dsl_ cli="lmcad" install="github:lmctl-ai/lmcad@latest";
+scene.background(1.0, 1.0, 1.0);
+scene.supersample(2);
+scene.ambient(0.55);
+scene.directional_light(-0.45, -0.80, -0.35, 0.75);
+scene.fill_light(0.55, 0.25, 0.80, 0.35);
+let v = read_keyframes_csv("build/examples/heated_cube-voxels.csv");
+let s = 1.0 / 12.0;
+for (q in range(0, v.len())) {
+  let p = v.at(q);
+  scene.box(s * 0.97, s * 0.97, s * 0.97, material().color(p.r(), p.g(), p.b()).specular(0.15)).position(p.x(), p.z(), p.y());
+}
+scene.camera(27.0, 2.6, 2.1, 2.9, 0.47, 0.44, 0.47);
+scene.render_png("build/visual/heated_cube-render.png", 620, 480);
+end _dsl_
+savedsl(c, "build/visual/heated_cube-cad.dslb");
+r = system ${dsl_cli(c)} --dsl build/visual/heated_cube-cad.dslb;
+if (r.code != 0) { println(r.stdout); println(r.stderr); }
+assert(r.code == 0);
+
+fn png_uri(path) {
+  # "-i FILE" encodes FILE with both GNU coreutils (-i is ignored when encoding) and macOS
+  e = system base64 -i ${path};
+  if (e.code != 0 || len(e.stdout) < 100) {
+    e = system base64 ${path};
+  }
+  assert(e.code == 0 && len(e.stdout) >= 100, "base64 is needed to embed the 3D render");
+  return "data:image/png;base64," + replace_all(replace_all(e.stdout, "\n", ""), "\r", "");
+}
+uri = png_uri("build/visual/heated_cube-render.png");
+core_txt = sprintf("%.5f", core);
+half_txt = sprintf("%.5f", num(probe[0][1]));
+mkdir("images");
+mkdir("build/rendered");
+d = _dsl_ cli="lmdraw" install="github:lmctl-ai/lmdraw@latest";
+scene.canvas(940, 560, "#ffffff");
+scene.image(${uri}, 10.0, 78.0, 620.0, 480.0);
+scene.text(30.0, 40.0, 22.0, "A self-heating block is hottest in its core", "#1d2733").set_attr("font-weight", "700");
+scene.text(30.0, 66.0, 14.0, "Steady 3D conduction, uniform heat source, faces held cold; one octant cut away", "#5a6672");
+let g = scene.linear_gradient("heat", 0.0, 1.0, 0.0, 0.0);
+g.stop(0.0, "#17334d");
+g.stop(0.5, "#149994");
+g.stop(1.0, "#fff08c");
+let bar = scene.rect(660.0, 130.0, 22.0, 240.0, "url(#heat)");
+bar.set_attr("stroke", "#9aa5b1");
+scene.text(692.0, 136.0, 13.0, "0.056 (core)", "#1d2733");
+scene.text(692.0, 254.0, 13.0, "0.028", "#1d2733");
+scene.text(692.0, 374.0, 13.0, "0 (faces)", "#1d2733");
+scene.text(660.0, 114.0, 14.0, "Temperature", "#1d2733").set_attr("font-weight", "700");
+let card = scene.rect(650.0, 410.0, 270.0, 124.0, "#f5f8fa");
+card.set_attr("stroke", "#d5dde5"); card.set_attr("rx", "8");
+scene.text(666.0, 436.0, 13.0, "Core temperature, finite elements", "#5a6672");
+scene.text(666.0, 462.0, 20.0, ${core_txt}, "#007f86").set_attr("font-weight", "700");
+scene.text(666.0, 486.0, 12.5, "series solution 0.05621", "#1d2733");
+scene.text(666.0, 506.0, 12.5, "half-way to a face " + ${half_txt}, "#1d2733");
+scene.text(666.0, 524.0, 12.5, "-ΔT = 1 in a unit cube, T = 0 on faces", "#5a6672");
+scene.render_png("build/rendered/heated_cube.png", 940, 560, 1);
+end _dsl_
+savedsl(d, "build/visual/heated_cube-draw.dslb");
+r = system ${dsl_cli(d)} --dsl build/visual/heated_cube-draw.dslb;
+if (r.code != 0) { println(r.stdout); println(r.stderr); }
+assert(r.code == 0);
+copy_file("build/rendered/heated_cube.png", "images/heated_cube.png");
+println("wrote images/heated_cube.png");

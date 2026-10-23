@@ -1,0 +1,90 @@
+# One-minute quick start, drawn as the pipeline it runs through.
+# lmscript compiles each _dsl_ block to bytecode for a host: lmfluid solves a Poisson
+# problem whose exact answer is u = x^2 + y^2, writes CSV, and lmdraw draws how the
+# pieces fit together, annotated with the number the solver just returned.
+# Writes images/quickstart.png.
+mkdir("build/examples");
+p = _dsl_ cli="lmfluid" install="github:lmctl-ai/lmfluid@latest";
+let field = fluid.poisson(fluid.rect(12, 12, 1.0, 1.0), 2).source("-4").dirichlet(0, "x*x+y*y").solve();
+fluid.assert_close(field.value(0.5, 0.5), 0.5, 0.000001);
+fluid.assert_close(field.l2_error("x*x+y*y"), 0.0, 0.000001);
+let out = fluid.matrix(1, 2);
+out.set(0, 0, field.value(0.5, 0.5));
+out.set(0, 1, float(field.dofs()));
+out.save_csv("build/examples/quickstart.csv");
+field.sample(41, 41).save_csv("build/examples/quickstart-field.csv");
+end _dsl_
+savedsl(p, "build/quickstart.dslb");
+r = system ${dsl_cli(p)} --dsl build/quickstart.dslb;
+if (r.code != 0) { println(r.stdout); println(r.stderr); }
+assert(r.code == 0);
+row = csv_parse(read_file("build/examples/quickstart.csv"), false)[0];
+val_txt = "u(0.5, 0.5) = " + sprintf("%.6f", num(row[0])) + "   (exact 0.5)";
+dof_txt = sprintf("%.0f", num(row[1])) + " unknowns, P2 elements";
+
+mkdir("images");
+mkdir("build/visual");
+mkdir("build/rendered");
+d = _dsl_ cli="lmdraw" install="github:lmctl-ai/lmdraw@latest";
+scene.canvas(960, 520, "#ffffff");
+scene.text(36.0, 44.0, 23.0, "How an lmfluid example runs", "#1d2733").set_attr("font-weight", "700");
+scene.text(36.0, 70.0, 14.5, "One script, several hosts: each _dsl_ block becomes bytecode for the program named by cli=", "#5a6672");
+# five stages
+let s1 = scene.rect(36.0, 130.0, 160.0, 120.0, "#eef1f5");
+s1.set_attr("stroke", "#5a6672"); s1.set_attr("stroke-width", "2"); s1.set_attr("rx", "10");
+scene.text(116.0, 164.0, 15.0, "your .lms script", "#1d2733").set_attr("text-anchor", "middle");
+scene.text(116.0, 190.0, 12.0, "lmctl autorun URL", "#5a6672").set_attr("text-anchor", "middle");
+scene.text(116.0, 210.0, 12.0, "or lmscript file.lms", "#5a6672").set_attr("text-anchor", "middle");
+let s2 = scene.rect(232.0, 130.0, 160.0, 120.0, "#ebedf7");
+s2.set_attr("stroke", "#5864a8"); s2.set_attr("stroke-width", "2"); s2.set_attr("rx", "10");
+scene.text(312.0, 164.0, 15.0, "lmscript", "#3a4378").set_attr("text-anchor", "middle");
+scene.text(312.0, 190.0, 12.0, "installs hosts, checks", "#5a6672").set_attr("text-anchor", "middle");
+scene.text(312.0, 210.0, 12.0, "_dsl_ blocks, savedsl", "#5a6672").set_attr("text-anchor", "middle");
+let s3 = scene.rect(428.0, 112.0, 190.0, 156.0, "#e3f2f2");
+s3.set_attr("stroke", "#007f86"); s3.set_attr("stroke-width", "2.5"); s3.set_attr("rx", "10");
+scene.text(523.0, 140.0, 16.0, "lmfluid --dsl", "#00545a").set_attr("text-anchor", "middle").set_attr("font-weight", "700");
+scene.text(523.0, 166.0, 12.5, "MFEM finite elements:", "#1d2733").set_attr("text-anchor", "middle");
+scene.text(523.0, 184.0, 12.5, "Poisson, heat, elasticity", "#1d2733").set_attr("text-anchor", "middle");
+scene.text(523.0, 208.0, 12.5, "D2Q9 lattice Boltzmann:", "#1d2733").set_attr("text-anchor", "middle");
+scene.text(523.0, 226.0, 12.5, "channel, cavity, obstacles", "#1d2733").set_attr("text-anchor", "middle");
+scene.text(523.0, 252.0, 12.0, "assertions on known answers", "#00545a").set_attr("text-anchor", "middle");
+let s4 = scene.rect(654.0, 150.0, 80.0, 80.0, "#fff4e0");
+s4.set_attr("stroke", "#b07a0a"); s4.set_attr("stroke-width", "2"); s4.set_attr("rx", "10");
+scene.text(694.0, 196.0, 15.0, "CSV", "#8a5c00").set_attr("text-anchor", "middle");
+let s5 = scene.rect(770.0, 112.0, 160.0, 156.0, "#fbece5");
+s5.set_attr("stroke", "#df6b38"); s5.set_attr("stroke-width", "2"); s5.set_attr("rx", "10");
+scene.text(850.0, 142.0, 15.0, "drawing hosts", "#9c4220").set_attr("text-anchor", "middle");
+scene.text(850.0, 170.0, 12.5, "lmplot: charts, maps", "#1d2733").set_attr("text-anchor", "middle");
+scene.text(850.0, 192.0, 12.5, "lmdraw: diagrams", "#1d2733").set_attr("text-anchor", "middle");
+scene.text(850.0, 214.0, 12.5, "lmcad: 3D renders", "#1d2733").set_attr("text-anchor", "middle");
+scene.text(850.0, 246.0, 12.5, "-> images/*.png, .gif", "#9c4220").set_attr("text-anchor", "middle");
+scene.arrow(196.0, 190.0, 228.0, 190.0, "#5a6672", 2.5);
+scene.arrow(392.0, 190.0, 424.0, 190.0, "#5a6672", 2.5);
+scene.arrow(618.0, 190.0, 650.0, 190.0, "#5a6672", 2.5);
+scene.arrow(734.0, 190.0, 766.0, 190.0, "#5a6672", 2.5);
+# the script this picture came from
+let code = scene.rect(36.0, 310.0, 560.0, 176.0, "#17324d");
+code.set_attr("rx", "8");
+scene.text(54.0, 338.0, 13.0, "p = _dsl_ cli=\"lmfluid\" install=\"github:lmctl-ai/lmfluid@latest\";", "#e8f1f8");
+scene.text(54.0, 362.0, 13.0, "let field = fluid.poisson(fluid.rect(12, 12, 1.0, 1.0), 2)", "#e8f1f8");
+scene.text(54.0, 382.0, 13.0, "    .source(\"-4\").dirichlet(0, \"x*x+y*y\").solve();", "#e8f1f8");
+scene.text(54.0, 406.0, 13.0, "fluid.assert_close(field.value(0.5, 0.5), 0.5, 0.000001);", "#e8f1f8");
+scene.text(54.0, 430.0, 13.0, "end _dsl_", "#e8f1f8");
+scene.text(54.0, 454.0, 13.0, "savedsl(p, \"build/quickstart.dslb\");", "#e8f1f8");
+scene.text(54.0, 474.0, 13.0, "r = system $" + "{dsl_cli(p)} --dsl build/quickstart.dslb;", "#e8f1f8");
+let res = scene.rect(626.0, 310.0, 304.0, 176.0, "#f5f8fa");
+res.set_attr("stroke", "#d5dde5"); res.set_attr("rx", "8");
+scene.text(644.0, 340.0, 14.0, "This run returned", "#5a6672");
+scene.text(644.0, 372.0, 17.0, ${val_txt}, "#007f86").set_attr("font-weight", "700");
+scene.text(644.0, 400.0, 13.5, ${dof_txt}, "#1d2733");
+scene.text(644.0, 430.0, 13.0, "-Δu = -4 with u = x² + y² on the edges:", "#5a6672");
+scene.text(644.0, 450.0, 13.0, "the exact solution is x² + y² itself,", "#5a6672");
+scene.text(644.0, 470.0, 13.0, "which P2 elements represent exactly.", "#5a6672");
+scene.render_png("build/rendered/quickstart.png", 960, 520, 1);
+end _dsl_
+savedsl(d, "build/visual/quickstart-draw.dslb");
+r = system ${dsl_cli(d)} --dsl build/visual/quickstart-draw.dslb;
+if (r.code != 0) { println(r.stdout); println(r.stderr); }
+assert(r.code == 0);
+copy_file("build/rendered/quickstart.png", "images/quickstart.png");
+println("wrote images/quickstart.png");

@@ -1,0 +1,120 @@
+# Cantilever under its own weight: 2D linear elasticity against beam theory.
+# A 10 x 1 strip is clamped on the left and loaded by a uniform body force.
+# Euler-Bernoulli predicts tip deflection q L^4 / (8 E I) = 0.7500; Timoshenko adds
+# the shear term q L^2 / (2 k G A) = 0.0060. The finite-element answer sits on the
+# Timoshenko value, and the top-fibre bending stress follows 3 q (L-x)^2 / h^2.
+# Writes images/cantilever_beam.png.
+mkdir("build/examples");
+p = _dsl_ cli="lmfluid" install="github:lmctl-ai/lmfluid@latest";
+# lambda = 0 gives Poisson ratio 0, so E = 2 mu = 200 and plane strain = plane stress.
+let beam = fluid.elasticity(fluid.rect(80, 8, 10.0, 1.0), 2).lame(0.0, 100.0).force("0", "-0.01", "0").displacement(4, "0", "0", "0").solve();
+fluid.assert_close(beam.value(10.0, 0.5, 0.0, 1), -0.756, 0.002);
+let t = fluid.matrix(41, 4);
+for (i in range(0, 41)) {
+  let x = 0.25 * float(i);
+  t.set(i, 0, x);
+  t.set(i, 1, beam.value(x, 0.5, 0.0, 1));
+  # sigma_xx = (lambda + 2 mu) du_x/dx on the top fibre (the clamped corner is singular)
+  t.set(i, 2, 200.0 * beam.gradient(max(x, 0.5), 1.0, 0.0, 0, 0));
+  t.set(i, 3, beam.gradient(x, 0.5, 0.0, 1, 0));
+}
+t.save_csv("build/examples/cantilever_beam.csv");
+fluid.assert_close(t.get(10, 2), 1.6875, 0.01);
+fluid.assert_close(t.get(40, 3), -0.1, 0.001);
+end _dsl_
+savedsl(p, "build/cantilever_beam.dslb");
+r = system ${dsl_cli(p)} --dsl build/cantilever_beam.dslb;
+assert(r.code == 0);
+
+rows = csv_parse(read_file("build/examples/cantilever_beam.csv"), false);
+q = 0.01;
+EI = 200.0 / 12.0;
+L = 10.0;
+fn eb(x) { return q * x * x * (6.0 * L * L - 4.0 * L * x + x * x) / (24.0 * EI); }
+fn sig(x) { return 3.0 * q * (L - x) * (L - x); }
+fn F(v) { return floor(v) + 0.5; }
+fn R(v) { return str(round(v * 10.0) / 10.0); }
+# both plots share the beam's x scale: x in [0,10] -> [120,720] px
+fn X(x) { return 120.0 + x * 60.0; }
+fn YD(w) { return 300.0 + w / 1.0 * 130.0; }
+fn YS(s) { return 480.0 + (1.0 - s / 5.0) * 130.0; }
+fn dot(x, y) { return "M " + R(x - 4.0) + " " + R(y) + " a 4 4 0 1 0 8 0 a 4 4 0 1 0 -8 0 "; }
+eb_path = "";
+sig_path = "";
+for (i in range(0, 101)) {
+  x = 0.1 * i;
+  eb_path = eb_path + (i == 0 ? "M " : " L ") + R(X(x)) + " " + R(YD(eb(x)));
+  sig_path = sig_path + (i == 0 ? "M " : " L ") + R(X(x)) + " " + R(YS(sig(x)));
+}
+fem_dots = "";
+str_dots = "";
+bent = "";
+for (i in range(0, len(rows))) {
+  x = num(rows[i][0]);
+  w = 0.0 - num(rows[i][1]);
+  if (i % 2 == 0) { fem_dots = fem_dots + dot(X(x), YD(w)); }
+  if (i % 2 == 0 && x >= 0.5) { str_dots = str_dots + dot(X(x), YS(num(rows[i][2]))); }
+  # deformed beam centreline in the sketch, displacement drawn 60 px per unit (true scale)
+  bent = bent + (i == 0 ? "M " : " L ") + R(X(x)) + " " + R(156.0 + w * 60.0);
+}
+tip = 0.0 - num(rows[40][1]);
+tip_txt = sprintf("%.4f", tip);
+eb_txt = sprintf("%.4f", eb(L));
+tim_txt = sprintf("%.4f", eb(L) + q * L * L / (2.0 * (5.0 / 6.0) * 100.0));
+gap_txt = sprintf("%.1f", (tip / eb(L) - 1.0) * 100.0);
+root_txt = sprintf("%.3f", num(rows[2][2]));
+root_eb = sprintf("%.3f", sig(0.5));
+
+mkdir("images");
+mkdir("build/rendered");
+d = _dsl_ cli="lmdraw" install="github:lmctl-ai/lmdraw@latest";
+scene.canvas(960, 660, "#ffffff");
+scene.text(36.0, 44.0, 23.0, "A cantilever sags exactly as beam theory predicts", "#1d2733").set_attr("font-weight", "700");
+scene.text(36.0, 70.0, 14.5, "2D finite elements (P2, 80 x 8 cells) for a clamped strip under uniform load, against Euler-Bernoulli", "#5a6672");
+# clamp wall with hatching
+scene.rect(96.0, 100.0, 24.0, 130.0, "#c9d1da");
+for (k in range(0, 9)) { scene.line(96.0, 112.5 + float(k) * 14.0, 120.0, 100.5 + float(k) * 14.0, "#7d8a97", 1.5); }
+# undeformed beam outline, deformed centreline, load arrows
+let b0 = scene.rect(120.0, 136.0, 600.0, 40.0, "#e3f2f2");
+b0.set_attr("stroke", "#007f86"); b0.set_attr("stroke-width", "2");
+let cl = scene.path(${bent}, "none", "#17324d", 2.0);
+cl.set_attr("stroke-dasharray", "6 4");
+for (k in range(0, 13)) { scene.arrow(${F(X(0.4))} + float(k) * 48.0, 100.0, ${F(X(0.4))} + float(k) * 48.0, 132.0, "#df6b38", 2.0); }
+scene.text(420.0, 94.0, 14.0, "uniform load q = 0.01 per unit length", "#b4532a").set_attr("text-anchor", "middle");
+scene.text(420.0, 153.0, 14.0, "E = 200,  Poisson ratio 0,  L = 10,  h = 1", "#00545a").set_attr("text-anchor", "middle");
+scene.text(726.0, 214.0, 13.0, "deformed centreline (true scale)", "#17324d").set_attr("text-anchor", "end");
+scene.text(108.0, 248.0, 13.0, "clamped", "#5a6672").set_attr("text-anchor", "middle");
+# panel 1: deflection
+scene.axes(120.0, 300.0, 600.0, 130.0, 0.0, 10.0, -1.0, 0.0, 5, "#5a6672");
+scene.text(120.0, 290.0, 15.0, "Vertical deflection", "#1d2733").set_attr("font-weight", "700");
+scene.path(${eb_path}, "none", "#df6b38", 2.5);
+scene.path(${fem_dots}, "#007f86", "none", 1.0);
+# panel 2: top-fibre stress
+scene.axes(120.0, 480.0, 600.0, 130.0, 0.0, 10.0, 0.0, 5.0, 5, "#5a6672");
+scene.text(120.0, 470.0, 15.0, "Bending stress on the top fibre", "#1d2733").set_attr("font-weight", "700");
+scene.path(${sig_path}, "none", "#df6b38", 2.5);
+scene.path(${str_dots}, "#007f86", "none", 1.0);
+scene.text(420.0, 646.0, 13.0, "x along the beam", "#5a6672").set_attr("text-anchor", "middle");
+# legend and results card
+let card = scene.rect(752.0, 290.0, 186.0, 320.0, "#f5f8fa");
+card.set_attr("stroke", "#d5dde5"); card.set_attr("rx", "8");
+scene.circle(772.0, 318.0, 5.0, "#007f86");
+scene.text(786.0, 323.0, 13.5, "finite elements", "#1d2733");
+scene.line(764.0, 344.0, 780.0, 344.0, "#df6b38", 3.0);
+scene.text(786.0, 349.0, 13.5, "beam theory", "#1d2733");
+scene.text(766.0, 392.0, 13.0, "Tip deflection", "#5a6672");
+scene.text(766.0, 418.0, 20.0, ${tip_txt}, "#007f86").set_attr("font-weight", "700");
+scene.text(766.0, 442.0, 12.5, "Euler-Bernoulli " + ${eb_txt}, "#1d2733");
+scene.text(766.0, 462.0, 12.5, "+ shear (Timoshenko) " + ${tim_txt}, "#1d2733");
+scene.text(766.0, 482.0, 12.5, "difference from EB " + ${gap_txt} + "%", "#1d2733");
+scene.text(766.0, 526.0, 13.0, "Stress at x = 0.5", "#5a6672");
+scene.text(766.0, 550.0, 20.0, ${root_txt}, "#007f86").set_attr("font-weight", "700");
+scene.text(766.0, 574.0, 12.5, "beam theory " + ${root_eb}, "#1d2733");
+scene.render_png("build/rendered/cantilever_beam.png", 960, 660, 1);
+end _dsl_
+savedsl(d, "build/cantilever_beam-draw.dslb");
+r = system ${dsl_cli(d)} --dsl build/cantilever_beam-draw.dslb;
+if (r.code != 0) { println(r.stdout); println(r.stderr); }
+assert(r.code == 0);
+copy_file("build/rendered/cantilever_beam.png", "images/cantilever_beam.png");
+println("wrote images/cantilever_beam.png");

@@ -7,6 +7,7 @@ struct Matrix {
   int rows = 0, cols = 0;
   std::vector<double> data;
   double get(int, int) const;
+  void set(int, int, double);
   void save_csv(const std::string &) const;
 };
 // send MFEM's stdout diagnostics (mfem::out) to stderr; call once before running programs
@@ -25,6 +26,8 @@ struct Mesh {
 struct Field {
   std::shared_ptr<FieldData> data;
   double value(double x, double y, double z, int component = 0) const;
+  double gradient(double x, double y, double z, int component,
+                  int direction) const;
   double l2_error(const std::string &) const;
   double l2_error_vector(const std::string &, const std::string &,
                          const std::string &) const;
@@ -73,5 +76,12 @@ struct LBM {
   double kinetic_energy() const;
   int steps() const;
   Matrix sample() const;
+  LBM &obstacle(const std::string &mask);
+  bool is_solid(int ix, int iy) const;
+  int solid_cells() const;
+  double solid_force(int component) const;
+  double tau() const;
+  double mach() const;
+  Matrix vorticity() const;
 };
 } // namespace lmfluid

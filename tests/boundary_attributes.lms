@@ -1,0 +1,15 @@
+# Boundary attribute numbering documented in README.md: rect 1 bottom, 2 right, 3 top, 4 left;
+# box 1 bottom (z=0), 2 front (y=0), 3 right (x=1), 4 back, 5 left, 6 top. u = linear between two faces.
+p = _dsl_ cli="lmfluid" install="github:lmctl-ai/lmfluid@latest";
+let a = fluid.poisson(fluid.box(4,4,4,1.0,1.0,1.0),1).dirichlet(3,"1").dirichlet(5,"0").solve();
+fluid.assert_close(a.value(0.25,0.5,0.5,0), 0.25, 0.000001);
+let b = fluid.poisson(fluid.box(4,4,4,1.0,1.0,1.0),1).dirichlet(4,"1").dirichlet(2,"0").solve();
+fluid.assert_close(b.value(0.5,0.25,0.5,0), 0.25, 0.000001);
+let c = fluid.poisson(fluid.box(4,4,4,1.0,1.0,1.0),1).dirichlet(6,"1").dirichlet(1,"0").solve();
+fluid.assert_close(c.value(0.5,0.5,0.25,0), 0.25, 0.000001);
+let d = fluid.poisson(fluid.rect(4,4,1.0,1.0),1).dirichlet(2,"1").dirichlet(4,"0").solve();
+fluid.assert_close(d.value(0.25,0.5), 0.25, 0.000001);
+let e = fluid.poisson(fluid.rect(4,4,1.0,1.0),1).dirichlet(3,"1").dirichlet(1,"0").solve();
+fluid.assert_close(e.value(0.5,0.25), 0.25, 0.000001);
+end _dsl_
+savedsl(p, "build/boundary_attributes.dslb");

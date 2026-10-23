@@ -1,40 +1,126 @@
+# What-if sweep: the lid-driven cavity at three Reynolds numbers.
+# A square box of fluid is stirred by its sliding lid. At Re = 10 viscosity dominates and
+# the vortex sits high and symmetric under the lid; as Re rises inertia carries it
+# downstream and down toward the centre, and corner eddies appear. The streamlines are
+# contours of the stream function psi = integral of u dy. Vortex centres are compared
+# with Ghia, Ghia & Shin (1982): (0.6172, 0.7344) at Re 100, (0.5547, 0.6055) at Re 400.
+# Writes images/cavity_vortex.png.
 mkdir("build/examples");
 p = _dsl_ cli="lmfluid" install="github:lmctl-ai/lmfluid@latest";
-let v=fluid.cavity(32,32,0.1,0.03).run(6000);fluid.assert_true(v.velocity(16,16,0)<0.0);fluid.assert_true(v.kinetic_energy()>0.0);v.sample().save_csv("build/examples/cavity_vortex.csv");
+let n = 64;
+let lid = 0.1;
+let re = 10.0;
+for (run_id in range(0, 3)) {
+  let steps = 12000;
+  if (run_id == 1) {
+    re = 100.0;
+    steps = 30000;
+  }
+  if (run_id == 2) {
+    re = 400.0;
+    steps = 45000;
+  }
+  let c = fluid.cavity(n, n, lid * float(n) / re, lid).run(steps);
+  fluid.assert_true(c.mach() < 0.3);
+  c.sample().save_csv("build/examples/cavity_vortex-" + str(run_id) + ".csv");
+}
 end _dsl_
 savedsl(p, "build/cavity_vortex.dslb");
 r = system ${dsl_cli(p)} --dsl build/cavity_vortex.dslb;
+if (r.code != 0) { println(r.stdout); println(r.stderr); }
 assert(r.code == 0);
+
+# stream function on cell centres: psi(x, y) = sum of u over the cells below, in units of U L
+n = 64;
+centre = [];
+for (run_id in range(0, 3)) {
+  rows = csv_parse(read_file("build/examples/cavity_vortex-" + str(run_id) + ".csv"), false);
+  psi = [];
+  for (k in range(0, n * n)) { push(psi, 0.0); }
+  for (i in range(0, n)) {
+    acc = 0.0;
+    for (j in range(0, n)) {
+      u = num(rows[j * n + i][3]);
+      psi[j * n + i] = acc + 0.5 * u;
+      acc = acc + u;
+    }
+  }
+  # gnuplot grid format (blank line between scans); find the vortex centre (minimum psi)
+  out = "";
+  best = 0.0;
+  bx = 0.0;
+  by = 0.0;
+  for (i in range(0, n)) {
+    for (j in range(0, n)) {
+      v = psi[j * n + i] / (0.1 * n);
+      x = (i + 0.5) / n;
+      y = (j + 0.5) / n;
+      out = out + str(x) + " " + str(y) + " " + str(v) + "\n";
+      if (v < best) { best = v; bx = x; by = y; }
+    }
+    out = out + "\n";
+  }
+  write_file("build/examples/cavity_vortex-psi" + str(run_id) + ".dat", out);
+  push(centre, [bx, by, best]);
+}
+println("vortex centres: Re 10 " + str(centre[0][0]) + "," + str(centre[0][1]) + "  Re 100 " + str(centre[1][0]) + "," + str(centre[1][1]) + "  Re 400 " + str(centre[2][0]) + "," + str(centre[2][1]));
+# a cell is 1/64 = 0.016 wide; the centre must land within two cells of Ghia's
+assert(abs(centre[1][0] - 0.6172) < 0.035 && abs(centre[1][1] - 0.7344) < 0.035, "Re 100 vortex centre");
+assert(abs(centre[2][0] - 0.5547) < 0.035 && abs(centre[2][1] - 0.6055) < 0.035, "Re 400 vortex centre");
+fn mark(c) { return str(c[0]) + "," + str(c[1]); }
+m0 = mark(centre[0]);
+m1 = mark(centre[1]);
+m2 = mark(centre[2]);
 
 mkdir("build/visual");
 mkdir("images");
 v = _dsl_ cli="lmplot" install="github:lmctl-ai/lmplot@latest";
-plot.png("images/cavity_vortex.png",900,520);
-plot.cmd("set datafile separator ','");
-plot.cmd("set border 3");
-plot.cmd("set lmargin 14");
-plot.cmd("set rmargin 12");
-plot.cmd("set tics nomirror");
-plot.cmd("set grid back lc rgb '#e4e9ef'");
-plot.cmd("set key outside top center horizontal");
-plot.cmd("set style line 1 lc rgb '#007f86' lw 3");
-plot.cmd("set style line 2 lc rgb '#df6b38' lw 3");
-plot.cmd("set style line 3 lc rgb '#5864a8' lw 3");
-plot.cmd("set title 'A moving lid drives a viscous recirculating cavity'");
-plot.cmd("set xlabel 'x (lattice units)'");
-plot.cmd("set ylabel 'y (lattice units)'");
+plot.png("images/cavity_vortex.png", 960, 460);
+plot.cmd("set multiplot title 'A faster lid pushes the cavity vortex toward the centre (streamlines, lid moves right)' font ',14'");
+plot.cmd("set view map");
+plot.cmd("unset surface");
+plot.cmd("set contour base");
+plot.cmd("set cntrparam cubicspline");
+plot.cmd("set cntrparam levels discrete -0.11,-0.1,-0.09,-0.07,-0.05,-0.03,-0.01,-0.002,0.00002,0.0001,0.0003,0.0006");
 plot.cmd("set size ratio -1");
-plot.cmd("set xrange [0:32]");
-plot.cmd("set yrange [0:32]");
-plot.cmd("set palette defined (0 '#f5f8fa', 1 '#93d3d1')");
-plot.cmd("set cblabel 'Speed (lattice units)'");
+plot.cmd("set xrange [0:1]");
+plot.cmd("set yrange [0:1]");
+plot.cmd("set xtics 0,0.5,1");
+plot.cmd("set ytics 0,0.5,1");
+plot.cmd("set tics nomirror");
 plot.cmd("unset key");
-plot.cmd("plot 'build/examples/cavity_vortex.csv' using 1:2:6 with image, '' using ((int($1)%4==0 && int($2)%4==0)?$1:1/0):2:($4*160):($5*160) with vectors head filled lc rgb '#17324d'");
+plot.cmd("set tmargin at screen 0.80");
+plot.cmd("set bmargin at screen 0.15");
+plot.cmd("set palette defined (-0.11 '#17324d', -0.05 '#007f86', -0.0005 '#8fd0cc', 0 '#df6b38', 0.001 '#df6b38')");
+plot.cmd("set cbrange [-0.11:0.001]");
+plot.cmd("unset colorbox");
+for (k in range(0, 3)) {
+  plot.cmd("set lmargin at screen " + str(0.04 + 0.33 * float(k)));
+  plot.cmd("set rmargin at screen " + str(0.32 + 0.33 * float(k)));
+  plot.cmd("set object 1 rect from 0,0.985 to 1,1.015 fc rgb '#df6b38' fs solid 1.0 front");
+  if (k == 0) {
+    plot.cmd("set title 'Re = 10: viscous, symmetric' font ',12'");
+    plot.cmd("set label 1 at " + ${m0} + " point pt 7 ps 1.5 lc rgb '#df6b38' front");
+  }
+  if (k == 1) {
+    plot.cmd("set title 'Re = 100' font ',12'");
+    plot.cmd("set label 1 at " + ${m1} + " point pt 7 ps 1.5 lc rgb '#df6b38' front");
+    plot.cmd("set label 2 at 0.6172,0.7344 point pt 6 ps 2.2 lw 2 lc rgb '#17324d' front");
+  }
+  if (k == 2) {
+    plot.cmd("set title 'Re = 400: corner eddies appear' font ',12'");
+    plot.cmd("set label 1 at " + ${m2} + " point pt 7 ps 1.5 lc rgb '#df6b38' front");
+    plot.cmd("set label 2 at 0.5547,0.6055 point pt 6 ps 2.2 lw 2 lc rgb '#17324d' front");
+    plot.cmd("set label 3 at screen 0.5,0.04 center 'dot: computed vortex centre    ring: Ghia et al. 1982    orange contours: counter-rotating corner eddy    bar: moving lid' font ',11'");
+  }
+  plot.cmd("splot 'build/examples/cavity_vortex-psi" + str(k) + ".dat' using 1:2:3 with lines lc palette lw 2");
+  plot.cmd("unset label 2");
+}
+plot.cmd("unset multiplot");
 plot.close();
 end _dsl_
-savedsl(v,"build/visual/cavity_vortex.dslb");
+savedsl(v, "build/visual/cavity_vortex.dslb");
 r = system ${dsl_cli(v)} --dsl build/visual/cavity_vortex.dslb;
-if (r.code!=0) { println(r.stdout); println(r.stderr); }
-assert(r.code==0);
-
+if (r.code != 0) { println(r.stdout); println(r.stderr); }
+assert(r.code == 0);
 println("wrote images/cavity_vortex.png");

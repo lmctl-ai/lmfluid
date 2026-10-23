@@ -1,0 +1,177 @@
+# Vortex shedding behind a cylinder: the von Karman street.
+# A D = 16 cylinder sits in a body-force-driven channel (periodic in x, so strictly a
+# row of cylinders 20 D apart; walls 5 D apart). At a Reynolds number of about 140 the
+# wake becomes unsteady and sheds vortices alternately from each side. The lift force
+# oscillates at the shedding frequency f, the drag at 2f, and the Strouhal number
+# St = f D / U_bulk lands near 0.3, the value Schaefer & Turek (1996) report for a
+# cylinder blocking a quarter of a channel at Re = 100. Force magnitudes are larger than
+# for an isolated cylinder: each one sits in the wake of its periodic upstream neighbour.
+# Writes images/cylinder_wake.png and, when ffmpeg is on PATH, images/cylinder_wake.gif.
+mkdir("build/examples");
+p = _dsl_ cli="lmfluid" install="github:lmctl-ai/lmfluid@latest";
+let nx = 320;
+let ny = 80;
+let nu = 0.004;
+let u0 = 0.06;
+# the body force balances wall friction plus the cylinder's drag at U_bulk ~ 0.035
+let g = 2.5 * 8.0 * 0.0064 * u0 / float(ny * ny);
+let f = fluid.channel(nx, ny, nu, g).obstacle("64-(x-60)^2-(y-40.5)^2").init("0.06*4*y*(80-y)/6400", "0.01*sin(2*pi*x/320)");
+fluid.assert_true(f.solid_cells() > 190 && f.solid_cells() < 210);
+f.run(9000);
+# every 50 steps record a probe 3 D behind the cylinder, the forces (averaged over
+# those 50 steps) and the bulk velocity
+let rec = fluid.matrix(120, 5);
+for (k in range(0, 120)) {
+  f.run(50);
+  let ub = 0.0;
+  for (j in range(0, ny)) {
+    ub = ub + f.velocity(220, j, 0) / float(ny);
+  }
+  rec.set(k, 0, float(f.steps()));
+  rec.set(k, 1, f.velocity(108, 40, 1));
+  rec.set(k, 2, f.solid_force(0));
+  rec.set(k, 3, f.solid_force(1));
+  rec.set(k, 4, ub);
+  if (k % 6 == 5) {
+    f.vorticity().save_csv("build/examples/cylinder_wake-" + str(k / 6) + ".csv");
+  }
+}
+rec.save_csv("build/examples/cylinder_wake-probe.csv");
+fluid.assert_true(f.mach() < 0.3);
+end _dsl_
+savedsl(p, "build/cylinder_wake.dslb");
+r = system ${dsl_cli(p)} --dsl build/cylinder_wake.dslb;
+if (r.code != 0) { println(r.stdout); println(r.stderr); }
+assert(r.code == 0);
+
+# shedding period from upward zero crossings of the probe's cross-flow velocity
+rows = csv_parse(read_file("build/examples/cylinder_wake-probe.csv"), false);
+first = -1.0;
+last = -1.0;
+ncross = 0;
+ub = 0.0;
+for (k in range(0, len(rows))) {
+  ub = ub + num(rows[k][4]) / len(rows);
+}
+for (k in range(0, len(rows))) {
+  if (k > 0) {
+    a = num(rows[k - 1][1]);
+    b = num(rows[k][1]);
+    if (a < 0.0 && b >= 0.0) {
+      tc = num(rows[k - 1][0]) + 50.0 * a / (a - b);
+      if (first < 0.0) { first = tc; }
+      last = tc;
+      ncross = ncross + 1;
+    }
+  }
+}
+assert(ncross >= 2, "the wake must shed at least two periods in the recording");
+period = (last - first) / (ncross - 1);
+st = 16.0 / period / ub;
+re = ub * 16.0 / 0.004;
+println("shedding period " + sprintf("%.0f", period) + " steps, U_bulk " + sprintf("%.4f", ub) + ", Re " + sprintf("%.0f", re) + ", St " + sprintf("%.3f", st));
+assert(st > 0.15 && st < 0.4, "Strouhal number outside the confined-cylinder range");
+# drag and lift coefficients F / (0.5 rho U^2 D), rho = 1. A 300-step running mean
+# removes the channel's wall-to-wall acoustic mode (period 2 * 80 / c_s = 277 steps).
+cnorm = 0.5 * ub * ub * 16.0;
+coef = "";
+for (k in range(3, len(rows) - 3)) {
+  fx = 0.0;
+  fy = 0.0;
+  for (j in range(k - 3, k + 3)) {
+    fx = fx + num(rows[j][2]) / 6.0;
+    fy = fy + num(rows[j][3]) / 6.0;
+  }
+  coef = coef + rows[k][0] + "," + str(fx / cnorm) + "," + str(fy / cnorm) + "," + str(num(rows[k][1]) / ub) + "\n";
+}
+write_file("build/examples/cylinder_wake-coef.csv", coef);
+title = "Vortex street behind a cylinder: Re " + sprintf("%.0f", re) + ", Strouhal number " + sprintf("%.2f", st);
+sub = "shedding period " + sprintf("%.0f", period) + " steps: lift swings once per period, drag twice (300-step running means)";
+
+mkdir("build/visual");
+mkdir("images");
+v = _dsl_ cli="lmplot" install="github:lmctl-ai/lmplot@latest";
+plot.png("images/cylinder_wake.png", 960, 560);
+plot.cmd("set datafile separator ','");
+plot.cmd("set multiplot title " + ${"'" + title + "'"} + " font ',14'");
+plot.cmd("set lmargin at screen 0.08");
+plot.cmd("set rmargin at screen 0.90");
+plot.cmd("set tmargin at screen 0.85");
+plot.cmd("set bmargin at screen 0.52");
+plot.cmd("set xrange [0:320]");
+plot.cmd("set yrange [0:80]");
+plot.cmd("set xtics 0,40,320");
+plot.cmd("set ytics 0,40,80");
+plot.cmd("set tics nomirror");
+plot.cmd("set title 'Vorticity (red: counter-clockwise, blue: clockwise), lattice units' font ',11'");
+plot.cmd("set palette defined (-1 '#2b5ea8', -0.3 '#9cc0e4', 0 '#f7f7f7', 0.3 '#f2a99e', 1 '#bf3833')");
+plot.cmd("set cbrange [-0.012:0.012]");
+plot.cmd("set cbtics 0.012");
+plot.cmd("set colorbox user origin screen 0.915,0.52 size screen 0.012,0.33");
+plot.cmd("set object 1 circle at 60,40.5 size 8 fc rgb '#5a6672' fs solid 1.0 front");
+plot.cmd("unset key");
+plot.cmd("plot 'build/examples/cylinder_wake-19.csv' using 1:2:3 with image");
+plot.cmd("unset object 1");
+plot.cmd("unset colorbox");
+plot.cmd("set tmargin at screen 0.39");
+plot.cmd("set bmargin at screen 0.11");
+plot.cmd("set autoscale y");
+plot.cmd("set xrange [*:*]");
+plot.cmd("set xtics auto");
+plot.cmd("set ytics auto");
+plot.cmd("set grid back lc rgb '#e4e9ef'");
+plot.cmd("set border 3");
+plot.cmd("set title " + ${"'" + sub + "'"} + " font ',11'");
+plot.cmd("set xlabel 'time step'");
+plot.cmd("set ylabel 'lift C_L' tc rgb '#007f86'");
+plot.cmd("set y2label 'drag C_D' tc rgb '#df6b38'");
+plot.cmd("set ytics nomirror tc rgb '#007f86'");
+plot.cmd("set y2tics tc rgb '#df6b38'");
+plot.cmd("set border 11");
+plot.cmd("unset key");
+plot.cmd("plot 'build/examples/cylinder_wake-coef.csv' using 1:3 with lines lw 3 lc rgb '#007f86', '' using 1:2 axes x1y2 with lines lw 3 lc rgb '#df6b38'");
+plot.cmd("unset multiplot");
+plot.close();
+for (k in range(0, 20)) {
+  plot.png("build/visual/cylinder_wake-frame-" + str(k) + ".png", 900, 290);
+  plot.cmd("reset");
+  plot.cmd("set datafile separator ','");
+  plot.cmd("set lmargin at screen 0.04");
+  plot.cmd("set rmargin at screen 0.98");
+  plot.cmd("set tmargin at screen 0.85");
+  plot.cmd("set bmargin at screen 0.04");
+  plot.cmd("unset xtics");
+  plot.cmd("unset ytics");
+  plot.cmd("unset colorbox");
+  plot.cmd("unset key");
+  plot.cmd("set xrange [0:320]");
+  plot.cmd("set yrange [0:80]");
+  plot.cmd("set title 'Von Kármán vortex street behind a cylinder (vorticity), step " + str(9300 + 300 * k) + "'");
+  plot.cmd("set palette defined (-1 '#2b5ea8', -0.3 '#9cc0e4', 0 '#f7f7f7', 0.3 '#f2a99e', 1 '#bf3833')");
+  plot.cmd("set cbrange [-0.012:0.012]");
+  plot.cmd("set object 1 circle at 60,40.5 size 8 fc rgb '#5a6672' fs solid 1.0 front");
+  plot.cmd("plot 'build/examples/cylinder_wake-" + str(k) + ".csv' using 1:2:3 with image");
+  plot.close();
+}
+end _dsl_
+savedsl(v, "build/visual/cylinder_wake.dslb");
+r = system ${dsl_cli(v)} --dsl build/visual/cylinder_wake.dslb;
+if (r.code != 0) { println(r.stdout); println(r.stderr); }
+assert(r.code == 0);
+println("wrote images/cylinder_wake.png");
+
+fn has_cmd(name) {
+  path = env("PATH", "");
+  sep = contains(path, ";") ? ";" : ":";
+  for (dir in split(path, sep)) {
+    if (dir != "" && (file_exists(path_join(dir, name)) || file_exists(path_join(dir, name + ".exe")))) { return true; }
+  }
+  return false;
+}
+if (has_cmd("ffmpeg")) {
+  g = system ffmpeg -y -v error -threads 1 -framerate 8 -i build/visual/cylinder_wake-frame-%d.png -vf "scale=720:-1:flags=lanczos,split[a][b];[a]palettegen=max_colors=96[p];[b][p]paletteuse=dither=none" -loop 0 images/cylinder_wake.gif;
+  assert(g.code == 0);
+  println("wrote images/cylinder_wake.gif");
+} else {
+  println("ffmpeg not on PATH: animation frames are in build/visual/cylinder_wake-frame-*.png");
+}

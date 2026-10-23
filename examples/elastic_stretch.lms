@@ -1,37 +1,85 @@
+# The patch test: an elastic square under a uniform stretch-and-shear.
+# Engineers trust a finite element only if it reproduces a uniform strain exactly. Here
+# the edges of a 12 x 12 P1 mesh are moved by the affine field u = (0.10 x + 0.05 y,
+# 0.03 x - 0.04 y); linear elasticity then demands the same field everywhere inside,
+# and the computed solution matches it to rounding error. lmdraw shows the reference
+# grid and the deformed grid (displacement drawn 3x). Writes images/elastic_stretch.png.
 mkdir("build/examples");
 p = _dsl_ cli="lmfluid" install="github:lmctl-ai/lmfluid@latest";
-let f=fluid.elasticity(fluid.rect(12,12,1.0,1.0),1).lame(1.0,1.0).displacement(0,"0.1*x","0","0").solve();fluid.assert_close(f.l2_error_vector("0.1*x","0","0"),0.0,0.0000001);f.sample(21,21).save_csv("build/examples/elastic_stretch.csv");
+let f = fluid.elasticity(fluid.rect(12, 12, 1.0, 1.0), 1).lame(1.0, 1.0).displacement(0, "0.10*x+0.05*y", "0.03*x-0.04*y", "0").solve();
+let err = f.l2_error_vector("0.10*x+0.05*y", "0.03*x-0.04*y", "0");
+fluid.assert_close(err, 0.0, 0.0000001);
+# an interior point, far from the prescribed edges
+fluid.assert_close(f.value(0.5, 0.25, 0.0, 0), 0.0625, 0.0000001);
+f.sample(13, 13).save_csv("build/examples/elastic_stretch.csv");
+let e = fluid.matrix(1, 1);
+e.set(0, 0, err);
+e.save_csv("build/examples/elastic_stretch-error.csv");
 end _dsl_
 savedsl(p, "build/elastic_stretch.dslb");
 r = system ${dsl_cli(p)} --dsl build/elastic_stretch.dslb;
+if (r.code != 0) { println(r.stdout); println(r.stderr); }
 assert(r.code == 0);
 
-mkdir("build/visual");
-mkdir("images");
-v = _dsl_ cli="lmplot" install="github:lmctl-ai/lmplot@latest";
-plot.png("images/elastic_stretch.png",900,520);
-plot.cmd("set datafile separator ','");
-plot.cmd("set border 3");
-plot.cmd("set lmargin 14");
-plot.cmd("set rmargin 12");
-plot.cmd("set tics nomirror");
-plot.cmd("set grid back lc rgb '#e4e9ef'");
-plot.cmd("set key outside top center horizontal");
-plot.cmd("set style line 1 lc rgb '#007f86' lw 3");
-plot.cmd("set style line 2 lc rgb '#df6b38' lw 3");
-plot.cmd("set style line 3 lc rgb '#5864a8' lw 3");
-plot.cmd("set title 'Uniform axial strain: displacement enlarged four times'");
-plot.cmd("set xlabel 'x (model units)'");
-plot.cmd("set ylabel 'y (model units)'");
-plot.cmd("set size ratio -1");
-plot.cmd("set xrange [-0.05:1.45]");
-plot.cmd("set yrange [-0.05:1.05]");
-plot.cmd("plot 'build/examples/elastic_stretch.csv' using 1:2 with points pt 7 ps 0.6 lc rgb '#96a8b5' title 'Reference', '' using ($1+4*$4):($2+4*$5) with points pt 7 ps 0.6 lc rgb '#007f86' title 'Deformed (4x)'");
-plot.close();
-end _dsl_
-savedsl(v,"build/visual/elastic_stretch.dslb");
-r = system ${dsl_cli(v)} --dsl build/visual/elastic_stretch.dslb;
-if (r.code!=0) { println(r.stdout); println(r.stderr); }
-assert(r.code==0);
+rows = csv_parse(read_file("build/examples/elastic_stretch.csv"), false);
+err = num(csv_parse(read_file("build/examples/elastic_stretch-error.csv"), false)[0][0]);
+mag = 3.0;
+# model (0..1) -> pixels: origin at (150, 470), 300 px per unit, y up
+fn PX(x) { return 150.0 + 300.0 * x; }
+fn PY(y) { return 470.0 - 300.0 * y; }
+fn R(v) { return str(round(v * 10.0) / 10.0); }
+# interpolated DSL pixel coordinates must be floats: keep them off whole numbers
+fn F(v) { return floor(v) + 0.5; }
+ref = "";
+def = "";
+for (line in range(0, 13)) {
+  for (k in range(0, 13)) {
+    # rows run along x (index = j * 13 + i); draw lines of constant y, then constant x
+    a = rows[line * 13 + k];
+    ref = ref + (k == 0 ? "M " : " L ") + R(PX(num(a[0]))) + " " + R(PY(num(a[1])));
+    def = def + (k == 0 ? "M " : " L ") + R(PX(num(a[0]) + mag * num(a[3]))) + " " + R(PY(num(a[1]) + mag * num(a[4])));
+  }
+  for (k in range(0, 13)) {
+    b = rows[k * 13 + line];
+    ref = ref + (k == 0 ? " M " : " L ") + R(PX(num(b[0]))) + " " + R(PY(num(b[1])));
+    def = def + (k == 0 ? " M " : " L ") + R(PX(num(b[0]) + mag * num(b[3]))) + " " + R(PY(num(b[1]) + mag * num(b[4])));
+  }
+}
+# order of magnitude without a log function: the smallest 10^-k above the error
+k = 0;
+while (k < 20 && err < pow(10.0, 0.0 - (k + 1))) { k = k + 1; }
+err_txt = "L2 error against the exact affine field: below 1e-" + str(k) + " (rounding level)";
 
+mkdir("images");
+mkdir("build/visual");
+mkdir("build/rendered");
+d = _dsl_ cli="lmdraw" install="github:lmctl-ai/lmdraw@latest";
+scene.canvas(960, 560, "#ffffff");
+scene.text(36.0, 44.0, 23.0, "The patch test: a uniform strain is reproduced exactly", "#1d2733").set_attr("font-weight", "700");
+scene.text(36.0, 70.0, 14.5, "Linear elasticity on a 12 x 12 mesh with the boundary moved by an affine stretch and shear", "#5a6672");
+scene.path(${ref}, "none", "#b9c3cd", 1.2);
+scene.path(${def}, "none", "#007f86", 1.8);
+scene.circle(150.0, 470.0, 4.0, "#17324d");
+scene.text(140.0, 492.0, 13.0, "(0, 0) fixed", "#17324d").set_attr("text-anchor", "middle");
+scene.arrow(450.0, 470.0, ${F(PX(1.0 + mag * 0.10))}, ${F(PY(mag * 0.03))}, "#df6b38", 2.0);
+scene.arrow(150.0, 170.0, ${F(PX(mag * 0.05))}, ${F(PY(1.0 - mag * 0.04))}, "#df6b38", 2.0);
+let card = scene.rect(600.0, 150.0, 330.0, 250.0, "#f5f8fa");
+card.set_attr("stroke", "#d5dde5"); card.set_attr("rx", "8");
+scene.line(620.0, 182.0, 650.0, 182.0, "#b9c3cd", 2.0);
+scene.text(660.0, 187.0, 14.0, "reference mesh", "#1d2733");
+scene.line(620.0, 210.0, 650.0, 210.0, "#007f86", 3.0);
+scene.text(660.0, 215.0, 14.0, "computed, displacement x3", "#1d2733");
+scene.line(620.0, 238.0, 650.0, 238.0, "#df6b38", 3.0);
+scene.text(660.0, 243.0, 14.0, "corner displacements (x3)", "#1d2733");
+scene.text(620.0, 284.0, 13.5, "u_x = 0.10 x + 0.05 y", "#1d2733");
+scene.text(620.0, 306.0, 13.5, "u_y = 0.03 x - 0.04 y", "#1d2733");
+scene.text(620.0, 342.0, 13.0, ${err_txt}, "#007f86", 300.0).set_attr("font-weight", "700");
+scene.text(36.0, 540.0, 13.0, "Straight lines stay straight and parallel: every element carries the same constant strain, as the theory requires.", "#5a6672");
+scene.render_png("build/rendered/elastic_stretch.png", 960, 560, 1);
+end _dsl_
+savedsl(d, "build/visual/elastic_stretch-draw.dslb");
+r = system ${dsl_cli(d)} --dsl build/visual/elastic_stretch-draw.dslb;
+if (r.code != 0) { println(r.stdout); println(r.stderr); }
+assert(r.code == 0);
+copy_file("build/rendered/elastic_stretch.png", "images/elastic_stretch.png");
 println("wrote images/elastic_stretch.png");

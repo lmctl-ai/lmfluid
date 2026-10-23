@@ -387,6 +387,39 @@ double Field::value(double x, double y, double z, int component) const {
   return v(component);
 }
 
+double Field::gradient(double x, double y, double z, int component,
+                       int direction) const {
+  check(data && data->gf, "field is empty");
+  check(component >= 0 && component < data->vdim,
+        "field component out of range");
+  int dim = data->owner->mesh->Dimension();
+  check(direction >= 0 && direction < dim,
+        "gradient direction must be 0..dimension-1");
+  check(std::isfinite(x) && std::isfinite(y) && std::isfinite(z),
+        "point is nonfinite");
+  if (dim == 2)
+    check(std::abs(z) <= 1e-12, "2D point must have z=0");
+  mfem::DenseMatrix p(dim, 1);
+  p(0, 0) = x;
+  p(1, 0) = y;
+  if (dim > 2)
+    p(2, 0) = z;
+  mfem::Array<int> elems;
+  mfem::Array<mfem::IntegrationPoint> ips;
+  data->owner->mesh->FindPoints(p, elems, ips, false);
+  check(elems.Size() == 1 && elems[0] >= 0, "point is outside mesh");
+  auto *T = data->owner->mesh->GetElementTransformation(elems[0]);
+  T->SetIntPoint(&ips[0]);
+  if (data->vdim == 1) {
+    mfem::Vector g;
+    data->gf->GetGradient(*T, g);
+    return g(direction);
+  }
+  mfem::DenseMatrix g;
+  data->gf->GetVectorGradient(*T, g);
+  return g(component, direction);
+}
+
 double Field::l2_error(const std::string &s) const {
   check(data && data->gf && data->vdim == 1,
         "scalar L2 error requires a scalar field");

@@ -167,6 +167,16 @@ void register_host(dslvm::Registry &r, Host &h) {
       throw dslvm::Error("assert_true failed");
     return Value::none();
   });
+  check(r, "Fluid", "matrix", {"int", "int"}, "Matrix",
+        [&h](void *, Args &a) {
+          Matrix m;
+          m.rows = integer(a[0], 1, 1000000, "matrix rows");
+          m.cols = integer(a[1], 1, 1000, "matrix columns");
+          if ((long long)m.rows * m.cols > 10000000)
+            throw dslvm::Error("matrix exceeds 10 million entries");
+          m.data.assign((std::size_t)m.rows * m.cols, 0.0);
+          return h.matrix(std::move(m));
+        });
   check(r, "Fluid", "eval", {"string"}, "float", [](void *, Args &a) {
     lmfluid::Expr e(a[0].s, {});
     double x = e.eval(nullptr);
@@ -239,6 +249,17 @@ void register_host(dslvm::Registry &r, Host &h) {
           return Value::real(field(p).value(
               a[0].f, a[1].f, a[2].f, integer(a[3], 0, 2, "field component")));
         });
+  check(r, "Field", "gradient", {"float", "float", "int"}, "float",
+        [](void *p, Args &a) {
+          return Value::real(field(p).gradient(
+              a[0].f, a[1].f, 0, 0, integer(a[2], 0, 2, "gradient direction")));
+        });
+  check(r, "Field", "gradient", {"float", "float", "float", "int", "int"},
+        "float", [](void *p, Args &a) {
+          return Value::real(field(p).gradient(
+              a[0].f, a[1].f, a[2].f, integer(a[3], 0, 2, "field component"),
+              integer(a[4], 0, 2, "gradient direction")));
+        });
   check(r, "Field", "l2_error", {"string"}, "float", [](void *p, Args &a) {
     return Value::real(field(p).l2_error(a[0].s));
   });
@@ -291,6 +312,26 @@ void register_host(dslvm::Registry &r, Host &h) {
         [](void *p, Args &) { return Value::integer(lbm(p).steps()); });
   check(r, "LBM", "sample", {}, "Matrix",
         [&h](void *p, Args &) { return h.matrix(lbm(p).sample()); });
+  check(r, "LBM", "obstacle", {"string"}, "LBM", [](void *p, Args &a) {
+    lbm(p).obstacle(a[0].s);
+    return Value::object("LBM", p);
+  });
+  check(r, "LBM", "is_solid", {"int", "int"}, "bool", [](void *p, Args &a) {
+    return Value::boolean(lbm(p).is_solid(integer(a[0], 0, 2047, "LBM ix"),
+                                          integer(a[1], 0, 2047, "LBM iy")));
+  });
+  check(r, "LBM", "solid_cells", {}, "int",
+        [](void *p, Args &) { return Value::integer(lbm(p).solid_cells()); });
+  check(r, "LBM", "solid_force", {"int"}, "float", [](void *p, Args &a) {
+    return Value::real(
+        lbm(p).solid_force(integer(a[0], 0, 1, "LBM force component")));
+  });
+  check(r, "LBM", "tau", {}, "float",
+        [](void *p, Args &) { return Value::real(lbm(p).tau()); });
+  check(r, "LBM", "mach", {}, "float",
+        [](void *p, Args &) { return Value::real(lbm(p).mach()); });
+  check(r, "LBM", "vorticity", {}, "Matrix",
+        [&h](void *p, Args &) { return h.matrix(lbm(p).vorticity()); });
   check(r, "Matrix", "rows", {}, "int",
         [](void *p, Args &) { return Value::integer(matrix(p).rows); });
   check(r, "Matrix", "cols", {}, "int",
@@ -299,6 +340,12 @@ void register_host(dslvm::Registry &r, Host &h) {
     return Value::real(matrix(p).get(integer(a[0], 0, 100000000, "matrix row"),
                                      integer(a[1], 0, 1000, "matrix column")));
   });
+  check(r, "Matrix", "set", {"int", "int", "float"}, "Matrix",
+        [](void *p, Args &a) {
+          matrix(p).set(integer(a[0], 0, 100000000, "matrix row"),
+                        integer(a[1], 0, 1000, "matrix column"), a[2].f);
+          return Value::object("Matrix", p);
+        });
   check(r, "Matrix", "save_csv", {"string"}, "void", [](void *p, Args &a) {
     matrix(p).save_csv(a[0].s);
     return Value::none();

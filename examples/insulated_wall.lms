@@ -1,0 +1,126 @@
+# Heat loss through an insulated wall: steady conduction across three layers.
+# Brick (20 cm, k = 0.72 W/m K), mineral wool (k = 0.04) and plaster (2 cm, k = 0.5)
+# separate -5 C outside from 20 C inside. Layers in series add their resistances
+# R = sum(t / k), so the heat flux is q = dT / R and the U-value is 1 / R.
+# lmfluid solves -div(k grad T) = 0 with the conductivity as a step expression and
+# reads the flux back as -k dT/dx; a sweep over insulation thickness shows why the
+# first few centimetres matter most. Writes images/insulated_wall.png.
+mkdir("build/examples");
+p = _dsl_ cli="lmfluid" install="github:lmctl-ai/lmfluid@latest";
+# k(x) for brick | wool | plaster; 0.5 + 0.5 sign(x - a) steps from 0 to 1 at x = a
+let kx = "0.72 + (0.04 - 0.72)*(0.5 + 0.5*sign(x - 0.2)) + (0.5 - 0.04)*(0.5 + 0.5*sign(x - 0.3))";
+let wall = fluid.poisson(fluid.rect(320, 2, 0.32, 0.02), 1).diffusion(kx).dirichlet(4, "-5").dirichlet(2, "20").solve();
+let prof = fluid.matrix(65, 2);
+for (i in range(0, 65)) {
+  let x = 0.005 * float(i);
+  prof.set(i, 0, x);
+  prof.set(i, 1, wall.value(x, 0.01));
+}
+prof.save_csv("build/examples/insulated_wall-profile.csv");
+# heat flows outward (-x); its magnitude k dT/dx is the same in every layer: compare with 25 / R
+let rsum = 0.2 / 0.72 + 0.1 / 0.04 + 0.02 / 0.5;
+fluid.assert_close(0.72 * wall.gradient(0.1, 0.01, 0), 25.0 / rsum, 0.001);
+fluid.assert_close(0.04 * wall.gradient(0.25, 0.01, 0), 25.0 / rsum, 0.001);
+fluid.assert_close(wall.value(0.2, 0.01), -5.0 + 25.0 / rsum * 0.2 / 0.72, 0.0001);
+# what-if: insulation thickness 0 .. 20 cm, U-value = flux / 25 K
+let sweep = fluid.matrix(11, 3);
+for (j in range(0, 11)) {
+  let s = 0.02 * float(j);
+  let len = 0.22 + s;
+  let ks = "0.72 + (0.04 - 0.72)*(0.5 + 0.5*sign(x - 0.2)) + (0.5 - 0.04)*(0.5 + 0.5*sign(x - " + str(0.2 + s) + "))";
+  let f = fluid.poisson(fluid.rect(int(len * 1000.0 + 0.5), 2, len, 0.02), 1).diffusion(ks).dirichlet(4, "-5").dirichlet(2, "20").solve();
+  sweep.set(j, 0, s * 100.0);
+  sweep.set(j, 1, 0.72 * f.gradient(0.1, 0.01, 0) / 25.0);
+  sweep.set(j, 2, 1.0 / (0.2 / 0.72 + s / 0.04 + 0.02 / 0.5));
+  fluid.assert_close(sweep.get(j, 1), sweep.get(j, 2), 0.0005);
+}
+sweep.save_csv("build/examples/insulated_wall-sweep.csv");
+end _dsl_
+savedsl(p, "build/insulated_wall.dslb");
+r = system ${dsl_cli(p)} --dsl build/insulated_wall.dslb;
+assert(r.code == 0);
+
+prof = csv_parse(read_file("build/examples/insulated_wall-profile.csv"), false);
+sweep = csv_parse(read_file("build/examples/insulated_wall-sweep.csv"), false);
+fn F(v) { return floor(v) + 0.5; }
+fn R(v) { return str(round(v * 10.0) / 10.0); }
+fn dot(x, y) { return "M " + R(x - 4.5) + " " + R(y) + " a 4.5 4.5 0 1 0 9 0 a 4.5 4.5 0 1 0 -9 0 "; }
+# wall section: x in [0, 0.32] m -> [90, 450] px; temperature [-10, 25] C -> [500, 150] px
+fn WX(x) { return 90.0 + x / 0.32 * 360.0; }
+fn WT(t) { return 500.0 - (t + 10.0) / 35.0 * 350.0; }
+tpath = "";
+for (i in range(0, len(prof))) {
+  tpath = tpath + (i == 0 ? "M " : " L ") + R(WX(num(prof[i][0]))) + " " + R(WT(num(prof[i][1])));
+}
+# sweep panel: thickness [0, 20] cm -> [560, 900] px; U [0, 3.5] -> [500, 150] px
+fn SX(s) { return 560.0 + s / 20.0 * 340.0; }
+fn SU(u) { return 500.0 - u / 3.5 * 350.0; }
+upath = "";
+for (i in range(0, 101)) {
+  s = 0.2 * i;
+  u = 1.0 / (0.2 / 0.72 + s / 100.0 / 0.04 + 0.02 / 0.5);
+  upath = upath + (i == 0 ? "M " : " L ") + R(SX(s)) + " " + R(SU(u));
+}
+udots = "";
+for (i in range(0, len(sweep))) {
+  udots = udots + dot(SX(num(sweep[i][0])), SU(num(sweep[i][1])));
+}
+q = 25.0 / (0.2 / 0.72 + 0.1 / 0.04 + 0.02 / 0.5);
+q0 = num(sweep[0][1]) * 25.0;
+t1 = num(prof[40][1]);
+t2 = num(prof[60][1]);
+q_txt = "Heat flux " + sprintf("%.2f", q) + " W/m²,  U-value " + sprintf("%.3f", q / 25.0) + " W/m² K";
+q0_txt = "without wool " + sprintf("%.1f", q0) + " W/m² (brick and plaster alone)";
+title_txt = "Ten centimetres of wool cut a wall's heat loss by " + sprintf("%.0f", (1.0 - q / q0) * 100.0) + "%";
+t1_txt = sprintf("%.1f", t1) + " °C";
+t2_txt = sprintf("%.1f", t2) + " °C";
+
+mkdir("images");
+mkdir("build/rendered");
+d = _dsl_ cli="lmdraw" install="github:lmctl-ai/lmdraw@latest";
+scene.canvas(960, 600, "#ffffff");
+scene.text(36.0, 44.0, 23.0, ${title_txt}, "#1d2733").set_attr("font-weight", "700");
+scene.text(36.0, 70.0, 14.5, "Steady conduction through brick, mineral wool and plaster: finite elements against resistances in series", "#5a6672");
+# layers
+scene.rect(${F(WX(0.0))}, 150.0, ${F(WX(0.2) - WX(0.0))}, 350.0, "#e9b9a6");
+scene.rect(${F(WX(0.2))}, 150.0, ${F(WX(0.3) - WX(0.2))}, 350.0, "#f7e3a1");
+scene.rect(${F(WX(0.3))}, 150.0, ${F(WX(0.32) - WX(0.3))}, 350.0, "#e2ded6");
+for (k in range(0, 12)) { scene.line(${F(WX(0.0))}, 165.5 + float(k) * 29.0, ${F(WX(0.2))}, 165.5 + float(k) * 29.0, "#d79c86", 1.0); }
+scene.text(${F(WX(0.1))}, 140.0, 14.0, "brick 20 cm", "#8a4a35").set_attr("text-anchor", "middle");
+scene.text(${F(WX(0.25))}, 140.0, 14.0, "wool 10 cm", "#8a6d12").set_attr("text-anchor", "middle");
+scene.text(${F(WX(0.33))}, 140.0, 14.0, "plaster", "#6b665c");
+scene.text(${F(WX(0.1))}, 124.0, 12.5, "k = 0.72", "#8a4a35").set_attr("text-anchor", "middle");
+scene.text(${F(WX(0.25))}, 124.0, 12.5, "k = 0.04", "#8a6d12").set_attr("text-anchor", "middle");
+scene.text(${F(WX(0.33))}, 124.0, 12.5, "k = 0.5", "#6b665c");
+# temperature axis and profile
+scene.line(${F(WX(0.0))}, ${F(WT(0.0))}, ${F(WX(0.32))}, ${F(WT(0.0))}, "#9aa5b1", 1.0).set_attr("stroke-dasharray", "4 4");
+scene.text(${F(WX(0.0) - 8.0)}, ${F(WT(0.0) + 4.0)}, 12.0, "0 °C", "#5a6672").set_attr("text-anchor", "end");
+scene.text(${F(WX(0.0) - 8.0)}, ${F(WT(-5.0) + 4.0)}, 12.0, "-5 °C", "#2b5ea8").set_attr("text-anchor", "end");
+scene.text(${F(WX(0.0) - 8.0)}, ${F(WT(20.0) + 4.0)}, 12.0, "20 °C", "#bf3833").set_attr("text-anchor", "end");
+scene.path(${tpath}, "none", "#17324d", 3.0);
+scene.circle(${F(WX(0.2))}, ${F(WT(t1))}, 5.0, "#17324d");
+scene.circle(${F(WX(0.3))}, ${F(WT(t2))}, 5.0, "#17324d");
+scene.text(${F(WX(0.2) - 8.0)}, ${F(WT(t1) - 10.0)}, 13.0, ${t1_txt}, "#17324d").set_attr("text-anchor", "end");
+scene.text(${F(WX(0.3) - 8.0)}, ${F(WT(t2) + 22.0)}, 13.0, ${t2_txt}, "#17324d").set_attr("text-anchor", "end");
+scene.text(${F(WX(0.0))}, 526.0, 13.5, "outside, -5 °C", "#2b5ea8");
+scene.text(${F(WX(0.32))}, 526.0, 13.5, "inside, 20 °C", "#bf3833").set_attr("text-anchor", "end");
+scene.text(36.0, 560.0, 14.5, ${q_txt}, "#1d2733").set_attr("font-weight", "700");
+scene.text(36.0, 582.0, 13.5, ${q0_txt}, "#5a6672");
+# sweep panel
+scene.axes(560.0, 150.0, 340.0, 350.0, 0.0, 20.0, 0.0, 3.5, 5, "#5a6672");
+scene.text(560.0, 128.0, 15.0, "U-value (W/m² K) vs wool thickness", "#1d2733").set_attr("font-weight", "700");
+scene.path(${upath}, "none", "#df6b38", 2.5);
+scene.path(${udots}, "#007f86", "none", 1.0);
+scene.text(730.0, 540.0, 13.0, "insulation thickness (cm)", "#5a6672").set_attr("text-anchor", "middle");
+scene.circle(745.0, 230.0, 5.0, "#007f86");
+scene.text(758.0, 235.0, 13.0, "finite elements", "#1d2733");
+scene.line(737.0, 256.0, 753.0, 256.0, "#df6b38", 3.0);
+scene.text(758.0, 261.0, 13.0, "1 / sum(t / k)", "#1d2733");
+scene.render_png("build/rendered/insulated_wall.png", 960, 600, 1);
+end _dsl_
+savedsl(d, "build/insulated_wall-draw.dslb");
+r = system ${dsl_cli(d)} --dsl build/insulated_wall-draw.dslb;
+if (r.code != 0) { println(r.stdout); println(r.stderr); }
+assert(r.code == 0);
+copy_file("build/rendered/insulated_wall.png", "images/insulated_wall.png");
+println("wrote images/insulated_wall.png");

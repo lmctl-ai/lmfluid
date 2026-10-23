@@ -1,5 +1,13 @@
 # Self-contained autorun gallery
 
+2026-10-23 (v0.2.0 gallery): 16 examples, 17 PNGs and 2 GIFs in docs/images (cylinder_wake,
+heat_clock). Drawing hosts: lmplot (charts, heatmaps, contours), lmdraw (schematics,
+annotated figures, the pipeline diagram; also composites lmcad renders) and lmcad (3D beam and
+voxel cube). Animated examples call ffmpeg themselves when it is on PATH, so autorun users get
+the GIF too; render-all.sh just copies images/<name>.png and .gif into docs/images.
+README groups the gallery as Flow, Structures, Heat, Numerics, with the wake GIF as the hero
+and the quickstart diagram under the one-minute quick start.
+
 README gallery captions and every examples listing provide copy-paste `lmctl autorun` raw-GitHub commands. Each examples/*.lms contains both the scientific computation and the lmplot block, with cli/install bindings for both. After savedsl it executes each host and asserts success. Generated CSV/bytecode/frames are under the current directory's build/; the PNG is images/<example>.png and its path is printed. No repository-relative input, shell helper, renderer PATH setup or VISUALS_NETWORK flag is needed. The former examples/visuals scripts and render-one helper were removed after inlining.
 
 For checkout maintenance, examples/render-all.sh executes the same self-contained programs, copies their PNGs into docs/images/, and uses ffmpeg on the generated frames to recreate the committed GIF. Missing ffmpeg reports an explicit animation skip; PNG generation always runs through the declared renderer binding. Root images/ is ignored. Gallery validation checks autorun URL ownership/source existence, inline renderer bindings, output paths and existing PNG/GIF signatures, dimensions and size budgets. All existing physics, determinism, schema and CLI checks remain in test.sh.

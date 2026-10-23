@@ -1,0 +1,154 @@
+# Stress concentration at a hole: why cracks start at rivet holes.
+# A square plate (2 x 2) with a central hole of radius 0.1 is pulled by its end grips.
+# Kirsch (1898) showed that a small circular hole in a plate under tension triples the
+# stress at the hole's edge, sigma_xx / sigma_nominal = 1 + a^2/(2 y^2) + 3 a^4/(2 y^4)
+# along the cross-section through the hole. The mesh (a graded O-grid of quadrilaterals)
+# is written by this script in MFEM format, so the example needs no data files.
+# Poisson's ratio 0 makes the clamped grips exact far-field conditions.
+# Writes images/plate_hole.png.
+mkdir("build/examples");
+a = 0.1;
+nt = 96;
+nr = 24;
+pi = 3.141592653589793;
+# trig without a library: rotate a unit vector by 2 pi / nt (exact to rounding)
+dt = 2.0 * pi / nt;
+fn cosx(t) {
+  s = 1.0; term = 1.0;
+  for (k in range(1, 14)) { term = 0.0 - term * t * t / ((2 * k - 1) * (2 * k)); s = s + term; }
+  return s;
+}
+fn sinx(t) {
+  s = t; term = t;
+  for (k in range(1, 14)) { term = 0.0 - term * t * t / ((2 * k) * (2 * k + 1)); s = s + term; }
+  return s;
+}
+verts = "";
+for (j in range(0, nt)) {
+  t = dt * j - pi;
+  cx = cosx(t);
+  sy = sinx(t);
+  # ray from the hole to the square |x| = 1 or |y| = 1
+  m = abs(cx) > abs(sy) ? abs(cx) : abs(sy);
+  for (i in range(0, nr + 1)) {
+    s = pow(i / nr, 1.7);
+    rr = a + (1.0 / m - a) * s;
+    verts = verts + str(rr * cx) + " " + str(rr * sy) + "\n";
+  }
+}
+elems = "";
+bdr = "";
+nb = 0;
+for (j in range(0, nt)) {
+  j2 = (j + 1) % nt;
+  for (i in range(0, nr)) {
+    v0 = j * (nr + 1) + i;
+    v1 = j * (nr + 1) + i + 1;
+    v2 = j2 * (nr + 1) + i + 1;
+    v3 = j2 * (nr + 1) + i;
+    elems = elems + "1 3 " + str(v0) + " " + str(v1) + " " + str(v2) + " " + str(v3) + "\n";
+  }
+  # hole edge: attribute 1
+  bdr = bdr + "1 1 " + str(j2 * (nr + 1)) + " " + str(j * (nr + 1)) + "\n";
+  # outer edge: 2 = left grip (x = -1), 3 = right grip (x = +1), 4 = free top/bottom
+  tm = dt * (j + 0.5) - pi;
+  cm = cosx(tm);
+  sm = sinx(tm);
+  att = abs(cm) > abs(sm) ? (cm < 0.0 ? 2 : 3) : 4;
+  bdr = bdr + str(att) + " 1 " + str(j * (nr + 1) + nr) + " " + str(j2 * (nr + 1) + nr) + "\n";
+  nb = nb + 2;
+}
+write_file("build/examples/plate_hole.mesh", "MFEM mesh v1.0\n\ndimension\n2\n\nelements\n" + str(nt * nr) + "\n" + elems + "\nboundary\n" + str(nb) + "\n" + bdr + "\nvertices\n" + str(nt * (nr + 1)) + "\n2\n" + verts);
+
+p = _dsl_ cli="lmfluid" install="github:lmctl-ai/lmfluid@latest";
+# E = 2 mu = 2, nu = 0; grips pull the ends apart by 1% each
+let f = fluid.elasticity(fluid.load_mesh("build/examples/plate_hole.mesh"), 2).lame(0.0, 1.0).displacement(2, "-0.01", "0", "0").displacement(3, "0.01", "0", "0").solve();
+# nominal stress: mean sigma_xx across the section x = -0.8 (force / width)
+let nom = 0.0;
+for (k in range(0, 200)) {
+  nom = nom + 2.0 * f.gradient(-0.8, -0.995 + 0.01 * float(k), 0.0, 0, 0) / 200.0;
+}
+# cross-section through the hole, x = 0, from the hole edge to the plate edge
+let line = fluid.matrix(91, 2);
+for (k in range(0, 91)) {
+  let y = 0.1 + 0.01 * float(k);
+  line.set(k, 0, y);
+  line.set(k, 1, 2.0 * f.gradient(0.0, min(y, 0.9999), 0.0, 0, 0) / nom);
+}
+line.save_csv("build/examples/plate_hole-line.csv");
+# stress map around the hole (|x|, |y| < 0.4), skipping the hole itself
+let map = fluid.matrix(161 * 161, 3);
+for (j in range(0, 161)) {
+  for (i in range(0, 161)) {
+    let x = -0.4 + 0.005 * float(i);
+    let y = -0.4 + 0.005 * float(j);
+    let row = j * 161 + i;
+    map.set(row, 0, x);
+    map.set(row, 1, y);
+    map.set(row, 2, -99.0);
+    if (x * x + y * y > 0.0101) {
+      map.set(row, 2, 2.0 * f.gradient(x, y, 0.0, 0, 0) / nom);
+    }
+  }
+}
+map.save_csv("build/examples/plate_hole-map.csv");
+let kt = line.get(0, 1);
+# Kirsch gives 3 for an infinite plate; Heywood's width correction for d/W = 0.1 gives 3.03
+fluid.assert_true(kt > 2.85 && kt < 3.2);
+end _dsl_
+savedsl(p, "build/plate_hole.dslb");
+r = system ${dsl_cli(p)} --dsl build/plate_hole.dslb;
+if (r.code != 0) { println(r.stdout); println(r.stderr); }
+assert(r.code == 0);
+line = csv_parse(read_file("build/examples/plate_hole-line.csv"), false);
+kt = num(line[0][1]);
+println("stress concentration factor " + sprintf("%.3f", kt));
+title = "A hole triples the stress beside it: K_t = " + sprintf("%.2f", kt) + " (Kirsch 3.00, Heywood 3.03)";
+
+mkdir("build/visual");
+mkdir("images");
+v = _dsl_ cli="lmplot" install="github:lmctl-ai/lmplot@latest";
+plot.png("images/plate_hole.png", 960, 500);
+plot.cmd("set datafile separator ','");
+plot.cmd("set multiplot title " + ${"'" + title + "'"} + " font ',14'");
+plot.cmd("set lmargin at screen 0.06");
+plot.cmd("set rmargin at screen 0.42");
+plot.cmd("set tmargin at screen 0.84");
+plot.cmd("set bmargin at screen 0.13");
+plot.cmd("set size ratio -1");
+plot.cmd("set xrange [-0.4:0.4]");
+plot.cmd("set yrange [-0.4:0.4]");
+plot.cmd("set tics nomirror");
+plot.cmd("set xtics -0.4,0.2,0.4");
+plot.cmd("set ytics -0.4,0.2,0.4");
+plot.cmd("set title 'σ_{xx} / nominal stress near the hole (pull is left-right)' font ',11'");
+plot.cmd("set palette defined (-0.5 '#0b1a2a', 0 '#17334d', 1 '#149994', 2 '#f2c14e', 3 '#bf3833')");
+plot.cmd("set cbrange [-0.5:3]");
+plot.cmd("set colorbox user origin screen 0.435,0.13 size screen 0.012,0.71");
+plot.cmd("set object 1 circle at 0,0 size 0.104 fc rgb '#ffffff' fs solid 1.0 front");
+plot.cmd("unset key");
+plot.cmd("plot 'build/examples/plate_hole-map.csv' using 1:2:($3<-50?1/0:$3) with image");
+plot.cmd("unset object 1");
+plot.cmd("unset colorbox");
+plot.cmd("set size noratio");
+plot.cmd("set lmargin at screen 0.585");
+plot.cmd("set rmargin at screen 0.97");
+plot.cmd("set xrange [0.1:1]");
+plot.cmd("set yrange [0.8:3.2]");
+plot.cmd("set xtics 0.1,0.1,1");
+plot.cmd("set ytics 1,0.5,3");
+plot.cmd("set grid back lc rgb '#e4e9ef'");
+plot.cmd("set border 3");
+plot.cmd("set title 'Stress across the section through the hole (x = 0)' font ',11'");
+plot.cmd("set xlabel 'distance from the hole centre, y'");
+plot.cmd("set ylabel 'σ_{xx} / nominal'");
+plot.cmd("set key top right box opaque");
+plot.cmd("plot 'build/examples/plate_hole-line.csv' using 1:2 every 3 with points pt 7 ps 1.6 lc rgb '#007f86' title 'finite elements', 1 + 0.01/(2*x**2) + 3*0.0001/(2*x**4) with lines lw 3 lc rgb '#df6b38' title 'Kirsch (infinite plate)'");
+plot.cmd("unset multiplot");
+plot.close();
+end _dsl_
+savedsl(v, "build/visual/plate_hole.dslb");
+r = system ${dsl_cli(v)} --dsl build/visual/plate_hole.dslb;
+if (r.code != 0) { println(r.stdout); println(r.stderr); }
+assert(r.code == 0);
+println("wrote images/plate_hole.png");

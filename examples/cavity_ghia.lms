@@ -1,0 +1,97 @@
+# Lid-driven cavity at Re = 100 against the classic benchmark of Ghia, Ghia & Shin
+# (J. Comput. Phys. 48, 1982). A 64 x 64 D2Q9 lattice runs to steady state; the
+# velocity profiles through the cavity centre are compared with the published table.
+# Writes images/cavity_ghia.png (speed map plus both centreline profiles).
+mkdir("build/examples");
+p = _dsl_ cli="lmfluid" install="github:lmctl-ai/lmfluid@latest";
+let n = 64;
+let lid = 0.08;
+# Re = U n / nu = 100
+let c = fluid.cavity(n, n, lid * float(n) / 100.0, lid).run(60000);
+let prof = fluid.matrix(n, 4);
+for (k in range(0, n)) {
+  let s = (float(k) + 0.5) / float(n);
+  # centrelines lie between the two middle columns / rows
+  prof.set(k, 0, s);
+  prof.set(k, 1, 0.5 * (c.velocity(n / 2 - 1, k, 0) + c.velocity(n / 2, k, 0)) / lid);
+  prof.set(k, 2, s);
+  prof.set(k, 3, 0.5 * (c.velocity(k, n / 2 - 1, 1) + c.velocity(k, n / 2, 1)) / lid);
+}
+prof.save_csv("build/examples/cavity_ghia-profiles.csv");
+c.sample().save_csv("build/examples/cavity_ghia-field.csv");
+# Ghia: u/U = -0.20581 at the centre; the steady state is reached
+fluid.assert_close(0.5 * (prof.get(31, 1) + prof.get(32, 1)), -0.20581, 0.01);
+let before = c.velocity(32, 32, 0);
+c.run(500);
+fluid.assert_close(c.velocity(32, 32, 0), before, 0.000001);
+fluid.assert_true(c.mach() < 0.3);
+end _dsl_
+savedsl(p, "build/cavity_ghia.dslb");
+r = system ${dsl_cli(p)} --dsl build/cavity_ghia.dslb;
+if (r.code != 0) { println(r.stdout); println(r.stderr); }
+assert(r.code == 0);
+
+# Ghia et al. (1982) Re = 100, tables I and II
+write_file("build/examples/cavity_ghia-u.csv", "1.0000,1.00000\n0.9766,0.84123\n0.9688,0.78871\n0.9609,0.73722\n0.9531,0.68717\n0.8516,0.23151\n0.7344,0.00332\n0.6172,-0.13641\n0.5000,-0.20581\n0.4531,-0.21090\n0.2813,-0.15662\n0.1719,-0.10150\n0.1016,-0.06434\n0.0703,-0.04775\n0.0625,-0.04192\n0.0547,-0.03717\n0.0000,0.00000\n");
+write_file("build/examples/cavity_ghia-v.csv", "1.0000,0.00000\n0.9688,-0.05906\n0.9609,-0.07391\n0.9531,-0.08864\n0.9453,-0.10313\n0.9063,-0.16914\n0.8594,-0.22445\n0.8047,-0.24533\n0.5000,0.05454\n0.2344,0.17527\n0.2266,0.17507\n0.1563,0.16077\n0.0938,0.12317\n0.0781,0.10890\n0.0703,0.10091\n0.0625,0.09233\n0.0000,0.00000\n");
+
+mkdir("build/visual");
+mkdir("images");
+v = _dsl_ cli="lmplot" install="github:lmctl-ai/lmplot@latest";
+plot.png("images/cavity_ghia.png", 960, 500);
+plot.cmd("set datafile separator ','");
+plot.cmd("set multiplot title 'Lid-driven cavity, Re = 100: lattice Boltzmann (64 x 64) against Ghia et al. 1982' font ',14'");
+plot.cmd("set tics nomirror");
+plot.cmd("set border 3");
+plot.cmd("set grid back lc rgb '#e4e9ef'");
+# panel 1: speed with direction arrows
+plot.cmd("set lmargin at screen 0.05");
+plot.cmd("set rmargin at screen 0.36");
+plot.cmd("set tmargin at screen 0.716");
+plot.cmd("set bmargin at screen 0.12");
+plot.cmd("set xrange [0:64]");
+plot.cmd("set yrange [0:64]");
+plot.cmd("set xtics 0,16,64");
+plot.cmd("set ytics 0,16,64");
+plot.cmd("set title 'Speed / lid speed (arrows: direction)'");
+plot.cmd("set palette defined (0 '#f7fbfc', 0.25 '#b9e1df', 0.6 '#2f9c9a', 1 '#17324d')");
+plot.cmd("set cbrange [0:1]");
+plot.cmd("set colorbox user origin screen 0.372,0.12 size screen 0.012,0.596");
+plot.cmd("set cbtics 0.25");
+plot.cmd("unset key");
+plot.cmd("plot 'build/examples/cavity_ghia-field.csv' using 1:2:($6/0.08) with image, '' using ((int($1)%5==2 && int($2)%5==2)?$1:1/0):2:(2.6*$4/$6):(2.6*$5/$6) with vectors head filled size 0.9,25 lc rgb '#df6b38' lw 1.2");
+plot.cmd("unset colorbox");
+plot.cmd("set tmargin at screen 0.84");
+plot.cmd("set grid back lc rgb '#e4e9ef'");
+# panel 2: u on the vertical centreline
+plot.cmd("set lmargin at screen 0.52");
+plot.cmd("set rmargin at screen 0.71");
+plot.cmd("set title 'u / U, vertical centreline'");
+plot.cmd("set xrange [-0.4:1.05]");
+plot.cmd("set yrange [0:1]");
+plot.cmd("set xtics -0.4,0.4,1.0");
+plot.cmd("set ytics 0,0.2,1");
+plot.cmd("set xlabel 'u / U'");
+plot.cmd("set ylabel 'y / L'");
+plot.cmd("unset key");
+plot.cmd("plot 'build/examples/cavity_ghia-profiles.csv' using 2:1 with lines lw 3 lc rgb '#007f86' title 'D2Q9', 'build/examples/cavity_ghia-u.csv' using 2:1 with points pt 7 ps 1.6 lc rgb '#df6b38' title 'Ghia 1982'");
+# panel 3: v on the horizontal centreline
+plot.cmd("set lmargin at screen 0.795");
+plot.cmd("set rmargin at screen 0.98");
+plot.cmd("set title 'v / U, horizontal centreline'");
+plot.cmd("set xrange [0:1]");
+plot.cmd("set yrange [-0.3:0.36]");
+plot.cmd("set xtics 0,0.2,1");
+plot.cmd("set ytics -0.3,0.1,0.3");
+plot.cmd("set xlabel 'x / L'");
+plot.cmd("set ylabel 'v / U'");
+plot.cmd("set key top right samplen 1.5 box opaque");
+plot.cmd("plot 'build/examples/cavity_ghia-profiles.csv' using 3:4 with lines lw 3 lc rgb '#007f86' title 'D2Q9', 'build/examples/cavity_ghia-v.csv' using 1:2 with points pt 7 ps 1.6 lc rgb '#df6b38' title 'Ghia 1982'");
+plot.cmd("unset multiplot");
+plot.close();
+end _dsl_
+savedsl(v, "build/visual/cavity_ghia.dslb");
+r = system ${dsl_cli(v)} --dsl build/visual/cavity_ghia.dslb;
+if (r.code != 0) { println(r.stdout); println(r.stderr); }
+assert(r.code == 0);
+println("wrote images/cavity_ghia.png");
