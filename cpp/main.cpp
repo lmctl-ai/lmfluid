@@ -68,7 +68,8 @@ template <class F> Value translate(F &&f) {
 void check(dslvm::Registry &r, const char *type, const char *name,
            std::vector<std::string> ps, std::string ret, dslvm::Method fn) {
   const std::string who = std::string(type) + "." + name;
-  r.method(type, name, ps, ret, [who, ps, fn](void *self, Args &a) {
+  const bool real = ret == "float";
+  r.method(type, name, ps, ret, [who, ps, fn, real](void *self, Args &a) {
     for (size_t i = 0; i < ps.size(); ++i) {
       const auto &p = a[i];
       const bool ok = ps[i] == "float"    ? p.kind == Value::FLOAT
@@ -81,7 +82,11 @@ void check(dslvm::Registry &r, const char *type, const char *name,
         throw dslvm::Error(who + " argument " + std::to_string(i + 1) +
                            " must be " + ps[i]);
     }
-    return translate([&] { return fn(self, a); });
+    Value out = translate([&] { return fn(self, a); });
+    // never hand NaN/inf to a script with ok: true
+    if (real && out.kind == Value::FLOAT && !std::isfinite(out.f))
+      throw dslvm::Error(who + ": the result is not finite");
+    return out;
   });
 }
 
