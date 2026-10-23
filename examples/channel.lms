@@ -9,7 +9,30 @@ end _dsl_
 savedsl(p, "build/channel.dslb");
 r = system ${dsl_cli(p)} --dsl build/channel.dslb;
 assert(r.code == 0);
-r = system bash examples/render-one.sh channel;
-println(r.stdout);
-if (r.code!=0) { println(r.stderr); }
-assert(r.code == 0);
+
+mkdir("build/visual");
+mkdir("images");
+v = _dsl_ cli="lmplot" install="github:lmctl-ai/lmplot@latest";
+plot.png("images/channel.png",900,520);
+plot.cmd("set datafile separator ','");
+plot.cmd("set border 3");
+plot.cmd("set lmargin 14");
+plot.cmd("set rmargin 12");
+plot.cmd("set tics nomirror");
+plot.cmd("set grid back lc rgb '#e4e9ef'");
+plot.cmd("set key outside top center horizontal");
+plot.cmd("set style line 1 lc rgb '#007f86' lw 3");
+plot.cmd("set style line 2 lc rgb '#df6b38' lw 3");
+plot.cmd("set style line 3 lc rgb '#5864a8' lw 3");
+plot.cmd("set title 'Plane Poiseuille flow: a parabola between stationary walls'");
+plot.cmd("set xlabel 'Cross-channel y (lattice units)'");
+plot.cmd("set ylabel 'Streamwise velocity (lattice units)'");
+plot.cmd("plot 'build/examples/channel.csv' using ($1==0.5?$2:1/0):4 with points pt 7 ps 1 lc rgb '#007f86' title 'D2Q9 samples', 0.00001*x*(12-x)/(2*0.1) with lines ls 2 title 'Continuum profile'");
+plot.close();
+end _dsl_
+savedsl(v,"build/visual/channel.dslb");
+r = system ${dsl_cli(v)} --dsl build/visual/channel.dslb;
+if (r.code!=0) { println(r.stdout); println(r.stderr); }
+assert(r.code==0);
+
+println("wrote images/channel.png");
