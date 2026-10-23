@@ -1,0 +1,8 @@
+p = _dsl_ cli="lmfluid" install="github:lmctl-ai/lmfluid@latest";
+let mesh = fluid.rect(8, 8, 1.0, 1.0);
+let problem = fluid.elasticity(mesh, 1).lame(1.0, 1.0).displacement(0, "x", "2.0*y", "0.0");
+let field = problem.solve();
+fluid.assert_close(field.l2_error_vector("x", "2.0*y", "0.0"), 0.0, 0.02);
+fluid.assert_true(field.components() >= 2);
+end _dsl_
+savedsl(p, "build/elasticity.dslb");

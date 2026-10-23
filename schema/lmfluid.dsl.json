@@ -1,0 +1,432 @@
+{
+  "dsl.schema": 2,
+  "name": "lmfluid",
+  "types": {
+    "Fluid": {
+      "methods": {
+        "rect": [
+          {
+            "params": [
+              "int",
+              "int",
+              "float",
+              "float"
+            ],
+            "returns": "Mesh"
+          }
+        ],
+        "box": [
+          {
+            "params": [
+              "int",
+              "int",
+              "int",
+              "float",
+              "float",
+              "float"
+            ],
+            "returns": "Mesh"
+          }
+        ],
+        "load_mesh": [
+          {
+            "params": [
+              "string"
+            ],
+            "returns": "Mesh"
+          }
+        ],
+        "poisson": [
+          {
+            "params": [
+              "Mesh",
+              "int"
+            ],
+            "returns": "Problem"
+          }
+        ],
+        "heat": [
+          {
+            "params": [
+              "Mesh",
+              "int"
+            ],
+            "returns": "Problem"
+          }
+        ],
+        "elasticity": [
+          {
+            "params": [
+              "Mesh",
+              "int"
+            ],
+            "returns": "Problem"
+          }
+        ],
+        "channel": [
+          {
+            "params": [
+              "int",
+              "int",
+              "float",
+              "float"
+            ],
+            "returns": "LBM"
+          }
+        ],
+        "cavity": [
+          {
+            "params": [
+              "int",
+              "int",
+              "float",
+              "float"
+            ],
+            "returns": "LBM"
+          }
+        ],
+        "periodic": [
+          {
+            "params": [
+              "int",
+              "int",
+              "float"
+            ],
+            "returns": "LBM"
+          }
+        ],
+        "assert_close": [
+          {
+            "params": [
+              "float",
+              "float",
+              "float"
+            ],
+            "returns": "void"
+          }
+        ],
+        "assert_true": [
+          {
+            "params": [
+              "bool"
+            ],
+            "returns": "void"
+          }
+        ],
+        "eval": [
+          {
+            "params": [
+              "string"
+            ],
+            "returns": "float"
+          }
+        ],
+        "print": [
+          {
+            "params": [
+              "string"
+            ],
+            "returns": "void"
+          }
+        ]
+      }
+    },
+    "Mesh": {
+      "methods": {
+        "dimension": [
+          {
+            "params": [],
+            "returns": "int"
+          }
+        ],
+        "elements": [
+          {
+            "params": [],
+            "returns": "int"
+          }
+        ],
+        "save": [
+          {
+            "params": [
+              "string"
+            ],
+            "returns": "void"
+          }
+        ]
+      }
+    },
+    "Problem": {
+      "methods": {
+        "diffusion": [
+          {
+            "params": [
+              "string"
+            ],
+            "returns": "Problem"
+          }
+        ],
+        "source": [
+          {
+            "params": [
+              "string"
+            ],
+            "returns": "Problem"
+          }
+        ],
+        "initial": [
+          {
+            "params": [
+              "string"
+            ],
+            "returns": "Problem"
+          }
+        ],
+        "dirichlet": [
+          {
+            "params": [
+              "int",
+              "string"
+            ],
+            "returns": "Problem"
+          }
+        ],
+        "displacement": [
+          {
+            "params": [
+              "int",
+              "string",
+              "string",
+              "string"
+            ],
+            "returns": "Problem"
+          }
+        ],
+        "force": [
+          {
+            "params": [
+              "string",
+              "string",
+              "string"
+            ],
+            "returns": "Problem"
+          }
+        ],
+        "lame": [
+          {
+            "params": [
+              "float",
+              "float"
+            ],
+            "returns": "Problem"
+          }
+        ],
+        "tol": [
+          {
+            "params": [
+              "float",
+              "int"
+            ],
+            "returns": "Problem"
+          }
+        ],
+        "solve": [
+          {
+            "params": [],
+            "returns": "Field"
+          }
+        ],
+        "evolve": [
+          {
+            "params": [
+              "float",
+              "float"
+            ],
+            "returns": "Field"
+          }
+        ]
+      }
+    },
+    "Field": {
+      "methods": {
+        "value": [
+          {
+            "params": [
+              "float",
+              "float"
+            ],
+            "returns": "float"
+          },
+          {
+            "params": [
+              "float",
+              "float",
+              "float",
+              "int"
+            ],
+            "returns": "float"
+          }
+        ],
+        "l2_error": [
+          {
+            "params": [
+              "string"
+            ],
+            "returns": "float"
+          }
+        ],
+        "l2_error_vector": [
+          {
+            "params": [
+              "string",
+              "string",
+              "string"
+            ],
+            "returns": "float"
+          }
+        ],
+        "sample": [
+          {
+            "params": [
+              "int",
+              "int"
+            ],
+            "returns": "Matrix"
+          },
+          {
+            "params": [
+              "int",
+              "int",
+              "int"
+            ],
+            "returns": "Matrix"
+          }
+        ],
+        "dofs": [
+          {
+            "params": [],
+            "returns": "int"
+          }
+        ],
+        "components": [
+          {
+            "params": [],
+            "returns": "int"
+          }
+        ],
+        "time": [
+          {
+            "params": [],
+            "returns": "float"
+          }
+        ]
+      }
+    },
+    "LBM": {
+      "methods": {
+        "init": [
+          {
+            "params": [
+              "string",
+              "string"
+            ],
+            "returns": "LBM"
+          }
+        ],
+        "run": [
+          {
+            "params": [
+              "int"
+            ],
+            "returns": "LBM"
+          }
+        ],
+        "velocity": [
+          {
+            "params": [
+              "int",
+              "int",
+              "int"
+            ],
+            "returns": "float"
+          }
+        ],
+        "density": [
+          {
+            "params": [
+              "int",
+              "int"
+            ],
+            "returns": "float"
+          }
+        ],
+        "mass": [
+          {
+            "params": [],
+            "returns": "float"
+          }
+        ],
+        "max_speed": [
+          {
+            "params": [],
+            "returns": "float"
+          }
+        ],
+        "kinetic_energy": [
+          {
+            "params": [],
+            "returns": "float"
+          }
+        ],
+        "steps": [
+          {
+            "params": [],
+            "returns": "int"
+          }
+        ],
+        "sample": [
+          {
+            "params": [],
+            "returns": "Matrix"
+          }
+        ]
+      }
+    },
+    "Matrix": {
+      "methods": {
+        "rows": [
+          {
+            "params": [],
+            "returns": "int"
+          }
+        ],
+        "cols": [
+          {
+            "params": [],
+            "returns": "int"
+          }
+        ],
+        "get": [
+          {
+            "params": [
+              "int",
+              "int"
+            ],
+            "returns": "float"
+          }
+        ],
+        "save_csv": [
+          {
+            "params": [
+              "string"
+            ],
+            "returns": "void"
+          }
+        ]
+      }
+    }
+  },
+  "functions": {},
+  "context": {
+    "fluid": "Fluid"
+  }
+}

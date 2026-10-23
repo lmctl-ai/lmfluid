@@ -1,0 +1,14 @@
+p = _dsl_ cli="lmfluid" install="github:lmctl-ai/lmfluid@latest";
+let coarse1 = fluid.poisson(fluid.rect(8, 8, 1.0, 1.0), 1).source("19.7392088021787*sin(3.141592653589793*x)*sin(3.141592653589793*y)").dirichlet(0, "0.0").solve();
+let fine1 = fluid.poisson(fluid.rect(16, 16, 1.0, 1.0), 1).source("19.7392088021787*sin(3.141592653589793*x)*sin(3.141592653589793*y)").dirichlet(0, "0.0").solve();
+let coarse2 = fluid.poisson(fluid.rect(8, 8, 1.0, 1.0), 2).source("19.7392088021787*sin(3.141592653589793*x)*sin(3.141592653589793*y)").dirichlet(0, "0.0").solve();
+let fine2 = fluid.poisson(fluid.rect(16, 16, 1.0, 1.0), 2).source("19.7392088021787*sin(3.141592653589793*x)*sin(3.141592653589793*y)").dirichlet(0, "0.0").solve();
+let e1c = coarse1.l2_error("sin(3.141592653589793*x)*sin(3.141592653589793*y)");
+let e1f = fine1.l2_error("sin(3.141592653589793*x)*sin(3.141592653589793*y)");
+let e2c = coarse2.l2_error("sin(3.141592653589793*x)*sin(3.141592653589793*y)");
+let e2f = fine2.l2_error("sin(3.141592653589793*x)*sin(3.141592653589793*y)");
+fluid.assert_true(e1c > e1f * 2.0);
+fluid.assert_true(e2c > e2f * 4.0);
+fluid.assert_true(e2f < 0.001);
+end _dsl_
+savedsl(p, "build/poisson_convergence.dslb");

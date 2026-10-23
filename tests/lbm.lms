@@ -1,0 +1,12 @@
+p = _dsl_ cli="lmfluid" install="github:lmctl-ai/lmfluid@latest";
+let rest = fluid.periodic(12, 12, 0.1).init("0.0", "0.0").run(20);
+fluid.assert_close(rest.mass(), 144.0, 0.000001);
+fluid.assert_close(rest.max_speed(), 0.0, 0.000001);
+fluid.assert_close(rest.kinetic_energy(), 0.0, 0.000001);
+fluid.assert_true(rest.steps() == 20);
+let channel = fluid.channel(24, 12, 0.1, 0.0001).run(100);
+fluid.assert_true(channel.mass() > 0.0);
+fluid.assert_true(channel.max_speed() > 0.0);
+fluid.assert_true(channel.sample().rows() == 288);
+end _dsl_
+savedsl(p, "build/lbm.dslb");
