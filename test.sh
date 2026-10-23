@@ -32,6 +32,8 @@ cmake --build "$BUILD_DIR" --parallel "${BUILD_JOBS:-4}" >"$WORK/build.log" 2>&1
 ok "build"
 ctest --test-dir "$BUILD_DIR" --output-on-failure || fail "native fluid tests"
 ok "native fluid regression tests"
+python3 scripts/check-version.py "$HOST" || fail "package version agreement"
+ok "VERSION agrees with CMake, schema, notices, binary and release tag"
 want_version="lmfluid $(sed -n 's/^project(lmfluid VERSION \([0-9.]*\).*/\1/p' CMakeLists.txt)"
 [ "$("$HOST" --version)" = "$want_version" ] || fail "--version is not exactly '$want_version'"
 ok "--version prints exactly '$want_version'"
