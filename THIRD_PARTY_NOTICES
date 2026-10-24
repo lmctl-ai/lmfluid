@@ -1,4 +1,4 @@
-lmfluid 0.2.0 includes the third-party software listed below.
+lmfluid 0.2.1 includes the third-party software listed below.
 
 lmfluid: original MIT host and D2Q9 solver, with serial MFEM 4.8 (BSD-3-Clause).
 The pinned source is fetched into ignored third_party; no GPL/LGPL scientific libraries are enabled.
@@ -240,4 +240,4 @@ Zstr MIT
 
 
 
-MFEM optional AmgX/Catch++ modules are disabled. No GPU, MPI, OpenMP, LAPACK, METIS or external sparse solver libraries are enabled. Standard compiler runtimes retain their applicable system/runtime-exception terms.
+MFEM optional AmgX/Catch++ modules are disabled. No GPU, MPI, OpenMP, LAPACK, METIS or external sparse solver libraries are enabled. On Linux, lmfluid is dynamically linked to the system glibc (LGPL-2.1, minimum dynamic glibc >= 2.35) and statically links libstdc++, libgcc, and serial MFEM. Windows statically links the MinGW-w64 runtime and GCC runtimes; macOS links only system libraries.

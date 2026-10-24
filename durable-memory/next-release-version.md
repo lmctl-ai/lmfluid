@@ -6,4 +6,4 @@ DSL schema format 2 is independent of the package version. The compiler rejects 
 
 The 2026-10-23 host audit found 0.2.0 development metadata in lmcell, lmparticle, lmfluid and lmmolecule; lmweather, lmplot, lmfinance, lmphysics, lmnum, lmbio and lmspace retained 0.1.1. No release tags were changed.
 
-After the initial 0.1.2 alignment, a concurrent release agent deliberately advanced VERSION, CMake and notices together to 0.2.0. The agreement guard remains intact.
+After the initial 0.1.2 alignment, a concurrent release agent deliberately advanced VERSION, CMake and notices together to 0.2.0. The Rule 14 rollout advances them together to 0.2.1. The agreement guard remains intact.

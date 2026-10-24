@@ -69,7 +69,7 @@ mkdir try-lmfluid && cd try-lmfluid
 lmctl autorun https://raw.githubusercontent.com/lmctl-ai/lmfluid/main/examples/quickstart.lms
 ```
 
-The first run downloads the released lmfluid and lmdraw binaries for your platform and writes `images/quickstart.png`, which draws the pipeline it just ran:
+The first run downloads the released lmfluid and lmdraw binaries for your platform (Linux x64/arm64 binaries require dynamic glibc >= 2.35 and statically link MFEM, libstdc++ and libgcc; macOS arm64/x64 and Windows x64 require no extra runtime libraries) and writes `images/quickstart.png`, which draws the pipeline it just ran:
 
 ![How an example runs: script, lmscript, lmfluid, CSV, drawing hosts](docs/images/quickstart.png)
 
@@ -143,9 +143,9 @@ cmake --build build --parallel 4
 examples/render-all.sh   # regenerate docs/images (and the GIFs when ffmpeg is present)
 ```
 
-Requires CMake 3.24+, C++17, git, Python 3 and lmscript for testing (`npm i -g @lmctl-ai/lmctl@0.2.369`). MFEM is built statically with exceptions and no MPI, METIS, OpenMP, GPU, LAPACK, zlib or other external numerical libraries. Linux binaries are fully static; macOS links only system libraries; Windows statically links MinGW runtimes.
+Requires CMake 3.24+, C++17, git, Python 3 and lmscript for testing (`npm i -g @lmctl-ai/lmctl@0.2.369`). MFEM is built statically with exceptions and no MPI, METIS, OpenMP, GPU, LAPACK, zlib or other external numerical libraries. Linux binaries dynamically link glibc (>= 2.35) and statically link MFEM, libstdc++ and libgcc; macOS links only system libraries; Windows statically links MinGW runtimes.
 
-`test.sh` checks manufactured solutions, P1/P2/P3 convergence orders, heat eigenmode decay, the elasticity patch test, cantilever deflection, slope and stress against beam theory, 3D Poisson and mesh round trips, periodic mass and momentum, shear-wave decay, the Poiseuille profile, obstacle walls against domain walls, the momentum balance on obstacles, Ghia's Re = 100 cavity, deterministic reruns, schema and signature parity, notices and static linking, 25 error cases and the stability warnings. It runs every example (each asserts its own known answer) and validates the gallery. See [durable memory](durable-memory/index.md) for measurements and scope.
+`test.sh` checks manufactured solutions, P1/P2/P3 convergence orders, heat eigenmode decay, the elasticity patch test, cantilever deflection, slope and stress against beam theory, 3D Poisson and mesh round trips, periodic mass and momentum, shear-wave decay, the Poiseuille profile, obstacle walls against domain walls, the momentum balance on obstacles, Ghia's Re = 100 cavity, deterministic reruns, schema and signature parity, notices and platform linkage (dynamic glibc >= 2.35 allowlist on Linux, static MFEM everywhere), 25 error cases and the stability warnings. It runs every example (each asserts its own known answer) and validates the gallery. See [durable memory](durable-memory/index.md) for measurements and scope.
 
 ## Resource limits
 
