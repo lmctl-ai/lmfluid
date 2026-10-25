@@ -1,4 +1,4 @@
-p = _dsl_ cli="lmfluid" install="github:lmctl-ai/lmfluid@latest";
+p = _lmcode_ cli="lmfluid" install="github:lmctl-ai/lmfluid@latest";
 # Manufactured solution u = sin(pi x) sin(pi y), the first Laplace eigenmode of the unit square:
 # -Delta u = 2 pi^2 u (2 pi^2 = 19.7392088021787). Halving h must divide the L2 error by 2^(p+1):
 # measured ratios 8 -> 16 are 3.994 (P1), 7.973 (P2), 15.96 (P3).
@@ -17,5 +17,5 @@ fluid.assert_close(e2c / e2f, 8.0, 0.4);
 # order 4 for p=3: ratio 16 within 6 percent
 fluid.assert_close(e3c / e3f, 16.0, 1.0);
 fluid.assert_true(e1f < 0.002 && e2f < 0.00004 && e3f < 0.0000004);
-end _dsl_
+end _lmcode_
 savedsl(p, "build/poisson_convergence.dslb");

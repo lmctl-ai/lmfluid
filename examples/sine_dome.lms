@@ -1,14 +1,14 @@
 mkdir("build/examples");
-p = _dsl_ cli="lmfluid" install="github:lmctl-ai/lmfluid@latest";
+p = _lmcode_ cli="lmfluid" install="github:lmctl-ai/lmfluid@latest";
 let f=fluid.poisson(fluid.rect(12,12,1.0,1.0),2).source("2*pi*pi*sin(pi*x)*sin(pi*y)").solve();fluid.assert_close(f.l2_error("sin(pi*x)*sin(pi*y)"),0.0,0.001);f.sample(41,41).save_csv("build/examples/sine_dome.csv");
-end _dsl_
+end _lmcode_
 savedsl(p, "build/sine_dome.dslb");
 r = system ${dsl_cli(p)} --dsl build/sine_dome.dslb;
 assert(r.code == 0);
 
 mkdir("build/visual");
 mkdir("images");
-v = _dsl_ cli="lmplot" install="github:lmctl-ai/lmplot@latest";
+v = _lmcode_ cli="lmplot" install="github:lmctl-ai/lmplot@latest";
 plot.png("images/sine_dome.png",900,520);
 plot.cmd("set datafile separator ','");
 plot.cmd("set border 3");
@@ -32,7 +32,7 @@ plot.cmd("set cblabel 'Field value'");
 plot.cmd("unset key");
 plot.cmd("plot 'build/examples/sine_dome.csv' using 1:2:4 with image");
 plot.close();
-end _dsl_
+end _lmcode_
 savedsl(v,"build/visual/sine_dome.dslb");
 r = system ${dsl_cli(v)} --dsl build/visual/sine_dome.dslb;
 if (r.code!=0) { println(r.stdout); println(r.stderr); }

@@ -1,4 +1,4 @@
-p = _dsl_ cli="lmfluid" install="github:lmctl-ai/lmfluid@latest";
+p = _lmcode_ cli="lmfluid" install="github:lmctl-ai/lmfluid@latest";
 let mesh = fluid.rect(20, 20, 1.0, 1.0);
 let problem = fluid.heat(mesh, 1).diffusion("1.0").initial("sin(3.141592653589793*x)*sin(3.141592653589793*y)").dirichlet(0, "0.0");
 let field = problem.evolve(0.01, 0.001);
@@ -6,5 +6,5 @@ let expected = 0.8208687174155399;
 # exp(-2 pi^2 t) at t = 0.01; backward Euler with dt = 0.001 alone gives 0.82245, measured 0.82212
 fluid.assert_close(field.value(0.5, 0.5), expected, 0.003);
 fluid.assert_close(field.time(), 0.01, 0.000001);
-end _dsl_
+end _lmcode_
 savedsl(p, "build/heat.dslb");

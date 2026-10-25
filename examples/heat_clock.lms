@@ -4,7 +4,7 @@
 # backward Euler (dt = 0.001) reproduce that to about 1%.
 # Writes images/heat_clock.png and, when ffmpeg is on PATH, images/heat_clock.gif.
 mkdir("build/examples");
-p = _dsl_ cli="lmfluid" install="github:lmctl-ai/lmfluid@latest";
+p = _lmcode_ cli="lmfluid" install="github:lmctl-ai/lmfluid@latest";
 let p = fluid.heat(fluid.rect(8, 8, 1.0, 1.0), 2).initial("sin(pi*x)*sin(pi*y)");
 for (i in range(0, 24)) {
   let t = 0.004 * float(i);
@@ -12,7 +12,7 @@ for (i in range(0, 24)) {
   fluid.assert_close(f.value(0.5, 0.5), fluid.eval("exp(-2*pi*pi*" + str(t) + ")"), 0.012);
   f.sample(31, 31).save_csv("build/examples/heat_clock-" + str(i) + ".csv");
 }
-end _dsl_
+end _lmcode_
 savedsl(p, "build/heat_clock.dslb");
 r = system ${dsl_cli(p)} --dsl build/heat_clock.dslb;
 assert(r.code == 0);
@@ -27,7 +27,7 @@ write_file("build/examples/heat_clock-decay.csv", decay);
 
 mkdir("build/visual");
 mkdir("images");
-v = _dsl_ cli="lmplot" install="github:lmctl-ai/lmplot@latest";
+v = _lmcode_ cli="lmplot" install="github:lmctl-ai/lmplot@latest";
 # frame k shows the plate at t = 0.004 k next to the centre temperature so far
 for (k in range(0, 25)) {
   let f = min(k, 23);
@@ -82,7 +82,7 @@ for (k in range(0, 25)) {
   plot.cmd("unset multiplot");
   plot.close();
 }
-end _dsl_
+end _lmcode_
 savedsl(v, "build/visual/heat_clock.dslb");
 r = system ${dsl_cli(v)} --dsl build/visual/heat_clock.dslb;
 if (r.code != 0) { println(r.stdout); println(r.stderr); }

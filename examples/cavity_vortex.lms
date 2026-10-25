@@ -6,7 +6,7 @@
 # with Ghia, Ghia & Shin (1982): (0.6172, 0.7344) at Re 100, (0.5547, 0.6055) at Re 400.
 # Writes images/cavity_vortex.png.
 mkdir("build/examples");
-p = _dsl_ cli="lmfluid" install="github:lmctl-ai/lmfluid@latest";
+p = _lmcode_ cli="lmfluid" install="github:lmctl-ai/lmfluid@latest";
 let n = 64;
 let lid = 0.1;
 let re = 10.0;
@@ -24,7 +24,7 @@ for (run_id in range(0, 3)) {
   fluid.assert_true(c.mach() < 0.3);
   c.sample().save_csv("build/examples/cavity_vortex-" + str(run_id) + ".csv");
 }
-end _dsl_
+end _lmcode_
 savedsl(p, "build/cavity_vortex.dslb");
 r = system ${dsl_cli(p)} --dsl build/cavity_vortex.dslb;
 if (r.code != 0) { println(r.stdout); println(r.stderr); }
@@ -74,7 +74,7 @@ m2 = mark(centre[2]);
 
 mkdir("build/visual");
 mkdir("images");
-v = _dsl_ cli="lmplot" install="github:lmctl-ai/lmplot@latest";
+v = _lmcode_ cli="lmplot" install="github:lmctl-ai/lmplot@latest";
 plot.png("images/cavity_vortex.png", 960, 460);
 plot.cmd("set multiplot title 'A faster lid pushes the cavity vortex toward the centre (streamlines, lid moves right)' font ',14'");
 plot.cmd("set view map");
@@ -118,7 +118,7 @@ for (k in range(0, 3)) {
 }
 plot.cmd("unset multiplot");
 plot.close();
-end _dsl_
+end _lmcode_
 savedsl(v, "build/visual/cavity_vortex.dslb");
 r = system ${dsl_cli(v)} --dsl build/visual/cavity_vortex.dslb;
 if (r.code != 0) { println(r.stdout); println(r.stderr); }

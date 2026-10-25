@@ -1,17 +1,17 @@
 mkdir("build/examples");
-p = _dsl_ cli="lmfluid" install="github:lmctl-ai/lmfluid@latest";
+p = _lmcode_ cli="lmfluid" install="github:lmctl-ai/lmfluid@latest";
 let mesh = fluid.rect(24, 24, 1.0, 1.0);
 let field = fluid.poisson(mesh, 2).source("-4.0").dirichlet(0, "x*x + y*y").solve();
 fluid.assert_close(field.l2_error("x*x + y*y"), 0.0, 0.005);
 field.sample(41, 41).save_csv("build/examples/poisson.csv");
-end _dsl_
+end _lmcode_
 savedsl(p, "build/poisson.dslb");
 r = system ${dsl_cli(p)} --dsl build/poisson.dslb;
 assert(r.code == 0);
 
 mkdir("build/visual");
 mkdir("images");
-v = _dsl_ cli="lmplot" install="github:lmctl-ai/lmplot@latest";
+v = _lmcode_ cli="lmplot" install="github:lmctl-ai/lmplot@latest";
 plot.png("images/poisson.png",900,520);
 plot.cmd("set datafile separator ','");
 plot.cmd("set border 3");
@@ -35,7 +35,7 @@ plot.cmd("set cblabel 'Field value'");
 plot.cmd("unset key");
 plot.cmd("plot 'build/examples/poisson.csv' using 1:2:4 with image");
 plot.close();
-end _dsl_
+end _lmcode_
 savedsl(v,"build/visual/poisson.dslb");
 r = system ${dsl_cli(v)} --dsl build/visual/poisson.dslb;
 if (r.code!=0) { println(r.stdout); println(r.stderr); }

@@ -5,7 +5,7 @@
 # The right panel is the engineering view: error per unknown, where higher order wins.
 # Writes images/fem_convergence.png.
 mkdir("build/examples");
-p = _dsl_ cli="lmfluid" install="github:lmctl-ai/lmfluid@latest";
+p = _lmcode_ cli="lmfluid" install="github:lmctl-ai/lmfluid@latest";
 let src = "2*pi^2*sin(pi*x)*sin(pi*y)";
 let exact = "sin(pi*x)*sin(pi*y)";
 for (order in range(1, 4)) {
@@ -23,7 +23,7 @@ for (order in range(1, 4)) {
   fluid.assert_close(rate, pow(2.0, float(order + 1)), 0.06 * pow(2.0, float(order + 1)));
   t.save_csv("build/examples/fem_convergence-p" + str(order) + ".csv");
 }
-end _dsl_
+end _lmcode_
 savedsl(p, "build/fem_convergence.dslb");
 r = system ${dsl_cli(p)} --dsl build/fem_convergence.dslb;
 if (r.code != 0) { println(r.stdout); println(r.stderr); }
@@ -48,7 +48,7 @@ r3 = rate(3);
 
 mkdir("build/visual");
 mkdir("images");
-v = _dsl_ cli="lmplot" install="github:lmctl-ai/lmplot@latest";
+v = _lmcode_ cli="lmplot" install="github:lmctl-ai/lmplot@latest";
 plot.png("images/fem_convergence.png", 960, 480);
 plot.cmd("set datafile separator ','");
 plot.cmd("set multiplot layout 1,2 title 'Higher-order elements converge faster: -Δu = 2π² sin(πx) sin(πy) on the unit square' font ',14'");
@@ -78,7 +78,7 @@ plot.cmd("set key top right box opaque");
 plot.cmd("plot 'build/examples/fem_convergence-p1.csv' using 2:3 with linespoints ls 1 title 'P1', 'build/examples/fem_convergence-p2.csv' using 2:3 with linespoints ls 2 title 'P2', 'build/examples/fem_convergence-p3.csv' using 2:3 with linespoints ls 3 title 'P3'");
 plot.cmd("unset multiplot");
 plot.close();
-end _dsl_
+end _lmcode_
 savedsl(v, "build/visual/fem_convergence.dslb");
 r = system ${dsl_cli(v)} --dsl build/visual/fem_convergence.dslb;
 if (r.code != 0) { println(r.stdout); println(r.stderr); }

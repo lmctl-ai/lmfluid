@@ -4,7 +4,7 @@
 # pieces fit together, annotated with the number the solver just returned.
 # Writes images/quickstart.png.
 mkdir("build/examples");
-p = _dsl_ cli="lmfluid" install="github:lmctl-ai/lmfluid@latest";
+p = _lmcode_ cli="lmfluid" install="github:lmctl-ai/lmfluid@latest";
 let field = fluid.poisson(fluid.rect(12, 12, 1.0, 1.0), 2).source("-4").dirichlet(0, "x*x+y*y").solve();
 fluid.assert_close(field.value(0.5, 0.5), 0.5, 0.000001);
 fluid.assert_close(field.l2_error("x*x+y*y"), 0.0, 0.000001);
@@ -13,7 +13,7 @@ out.set(0, 0, field.value(0.5, 0.5));
 out.set(0, 1, float(field.dofs()));
 out.save_csv("build/examples/quickstart.csv");
 field.sample(41, 41).save_csv("build/examples/quickstart-field.csv");
-end _dsl_
+end _lmcode_
 savedsl(p, "build/quickstart.dslb");
 r = system ${dsl_cli(p)} --dsl build/quickstart.dslb;
 if (r.code != 0) { println(r.stdout); println(r.stderr); }
@@ -25,7 +25,7 @@ dof_txt = sprintf("%.0f", num(row[1])) + " unknowns, P2 elements";
 mkdir("images");
 mkdir("build/visual");
 mkdir("build/rendered");
-d = _dsl_ cli="lmdraw" install="github:lmctl-ai/lmdraw@latest";
+d = _lmcode_ cli="lmdraw" install="github:lmctl-ai/lmdraw@latest";
 scene.canvas(960, 520, "#ffffff");
 scene.text(36.0, 44.0, 23.0, "How an lmfluid example runs", "#1d2733").set_attr("font-weight", "700");
 scene.text(36.0, 70.0, 14.5, "One script, several hosts: each _dsl_ block becomes bytecode for the program named by cli=", "#5a6672");
@@ -81,7 +81,7 @@ scene.text(644.0, 430.0, 13.0, "-Δu = -4 with u = x² + y² on the edges:", "#5
 scene.text(644.0, 450.0, 13.0, "the exact solution is x² + y² itself,", "#5a6672");
 scene.text(644.0, 470.0, 13.0, "which P2 elements represent exactly.", "#5a6672");
 scene.render_png("build/rendered/quickstart.png", 960, 520, 1);
-end _dsl_
+end _lmcode_
 savedsl(d, "build/visual/quickstart-draw.dslb");
 r = system ${dsl_cli(d)} --dsl build/visual/quickstart-draw.dslb;
 if (r.code != 0) { println(r.stdout); println(r.stderr); }

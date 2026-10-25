@@ -5,7 +5,7 @@
 # u_c(t) = u_max [1 - 32/pi^3 sum_odd (-1)^((n-1)/2) / n^3 exp(-n^2 pi^2 nu t / H^2)].
 # lmdraw draws the set-up, the profile and the start-up curve. Writes images/channel.png.
 mkdir("build/examples");
-p = _dsl_ cli="lmfluid" install="github:lmctl-ai/lmfluid@latest";
+p = _lmcode_ cli="lmfluid" install="github:lmctl-ai/lmfluid@latest";
 let flow = fluid.channel(48, 12, 0.1, 0.00001);
 # centre-line velocity every 100 steps from rest
 let hist = fluid.matrix(21, 2);
@@ -21,7 +21,7 @@ fluid.assert_true(flow.mass() > 0.0);
 fluid.assert_close(flow.velocity(24, 6, 0), 0.0018, 0.00002);
 fluid.assert_close(flow.velocity(24, 6, 1), 0.0, 0.000001);
 flow.sample().save_csv("build/examples/channel.csv");
-end _dsl_
+end _lmcode_
 savedsl(p, "build/channel.dslb");
 r = system ${dsl_cli(p)} --dsl build/channel.dslb;
 if (r.code != 0) { println(r.stdout); println(r.stderr); }
@@ -85,7 +85,7 @@ umax_txt = "u_max = gH²/8ν = " + sprintf("%.5f", umax);
 mkdir("images");
 mkdir("build/visual");
 mkdir("build/rendered");
-d = _dsl_ cli="lmdraw" install="github:lmctl-ai/lmdraw@latest";
+d = _lmcode_ cli="lmdraw" install="github:lmctl-ai/lmdraw@latest";
 scene.canvas(960, 580, "#ffffff");
 scene.text(36.0, 44.0, 23.0, "Poiseuille flow: a body force makes a parabola", "#1d2733").set_attr("font-weight", "700");
 scene.text(36.0, 70.0, 14.5, "D2Q9 lattice Boltzmann between two plates, against the exact steady profile and start-up series", "#5a6672");
@@ -136,7 +136,7 @@ scene.text(74.0, 525.0, 13.5, "lattice Boltzmann", "#1d2733");
 scene.line(52.0, 548.0, 68.0, 548.0, "#df6b38", 3.0);
 scene.text(74.0, 553.0, 13.5, "exact solution", "#1d2733");
 scene.render_png("build/rendered/channel.png", 960, 580, 1);
-end _dsl_
+end _lmcode_
 savedsl(d, "build/visual/channel-draw.dslb");
 r = system ${dsl_cli(d)} --dsl build/visual/channel-draw.dslb;
 if (r.code != 0) { println(r.stdout); println(r.stderr); }

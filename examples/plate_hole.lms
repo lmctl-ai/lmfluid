@@ -60,7 +60,7 @@ for (j in range(0, nt)) {
 }
 write_file("build/examples/plate_hole.mesh", "MFEM mesh v1.0\n\ndimension\n2\n\nelements\n" + str(nt * nr) + "\n" + elems + "\nboundary\n" + str(nb) + "\n" + bdr + "\nvertices\n" + str(nt * (nr + 1)) + "\n2\n" + verts);
 
-p = _dsl_ cli="lmfluid" install="github:lmctl-ai/lmfluid@latest";
+p = _lmcode_ cli="lmfluid" install="github:lmctl-ai/lmfluid@latest";
 # E = 2 mu = 2, nu = 0; grips pull the ends apart by 1% each
 let f = fluid.elasticity(fluid.load_mesh("build/examples/plate_hole.mesh"), 2).lame(0.0, 1.0).displacement(2, "-0.01", "0", "0").displacement(3, "0.01", "0", "0").solve();
 # nominal stress: mean sigma_xx across the section x = -0.8 (force / width)
@@ -95,7 +95,7 @@ map.save_csv("build/examples/plate_hole-map.csv");
 let kt = line.get(0, 1);
 # Kirsch gives 3 for an infinite plate; Heywood's width correction for d/W = 0.1 gives 3.03
 fluid.assert_true(kt > 2.85 && kt < 3.2);
-end _dsl_
+end _lmcode_
 savedsl(p, "build/plate_hole.dslb");
 r = system ${dsl_cli(p)} --dsl build/plate_hole.dslb;
 if (r.code != 0) { println(r.stdout); println(r.stderr); }
@@ -107,7 +107,7 @@ title = "A hole triples the stress beside it: K_t = " + sprintf("%.2f", kt) + " 
 
 mkdir("build/visual");
 mkdir("images");
-v = _dsl_ cli="lmplot" install="github:lmctl-ai/lmplot@latest";
+v = _lmcode_ cli="lmplot" install="github:lmctl-ai/lmplot@latest";
 plot.png("images/plate_hole.png", 960, 500);
 plot.cmd("set datafile separator ','");
 plot.cmd("set multiplot title " + ${"'" + title + "'"} + " font ',14'");
@@ -146,7 +146,7 @@ plot.cmd("set key top right box opaque");
 plot.cmd("plot 'build/examples/plate_hole-line.csv' using 1:2 every 3 with points pt 7 ps 1.6 lc rgb '#007f86' title 'finite elements', 1 + 0.01/(2*x**2) + 3*0.0001/(2*x**4) with lines lw 3 lc rgb '#df6b38' title 'Kirsch (infinite plate)'");
 plot.cmd("unset multiplot");
 plot.close();
-end _dsl_
+end _lmcode_
 savedsl(v, "build/visual/plate_hole.dslb");
 r = system ${dsl_cli(v)} --dsl build/visual/plate_hole.dslb;
 if (r.code != 0) { println(r.stdout); println(r.stderr); }

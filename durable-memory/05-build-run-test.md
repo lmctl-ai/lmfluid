@@ -2,7 +2,7 @@
 
 Measured 2026-10-23 on x86_64 Linux, GCC 11 and CMake/Ninja. The clean MFEM-only Release static target compiled 221 objects in 317.04 seconds with four build jobs. Its static archive is about 33 MB; the fully static stripped host is about 13.4 MB. MFEM reports no external TPL includes or dependencies in this configuration. The reduced Eigen fallback has not been needed.
 
-Build: scripts/sync-deps.sh, cmake -S . -B build -DCMAKE_BUILD_TYPE=Release, cmake --build build --parallel 4, then ./test.sh. C++17, git, Python 3 and the lmscript v5 compiler are required; CI pins @lmctl-ai/lmctl@0.2.369. Dependency and SDK pins are verified before building.
+Build: scripts/sync-deps.sh, cmake -S . -B build -DCMAKE_BUILD_TYPE=Release, cmake --build build --parallel 4, then ./test.sh. C++17, git, Python 3 and the lmscript v5 compiler are required; CI pins @lmctl-ai/lmctl@0.2.420. Dependency and SDK pins are verified before building.
 
 The integration suite has 18 grouped checks, two native suites (29 FEM checks and 34 LBM checks), DSL test and example programs, deterministic CSV files, and 25 runtime error snippets (including a dangling-vertex mesh and CG non-convergence, whose stdout must stay one JSON line). It verifies exact version, registry/generated/embedded/compiler schema parity, notices, platform linkage (dynamic glibc >= 2.35 NEEDED allowlist on Linux via `readelf -d`, `otool -L` on macOS, `objdump -p` on Windows), numeric assertions, byte-identical reruns, dry run without output writes and usage/load/run exit codes. Duplicate program basenames are rejected to prevent bytecode outputs masking another test.
 

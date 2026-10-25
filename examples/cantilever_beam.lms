@@ -5,7 +5,7 @@
 # Timoshenko value, and the top-fibre bending stress follows 3 q (L-x)^2 / h^2.
 # Writes images/cantilever_beam.png.
 mkdir("build/examples");
-p = _dsl_ cli="lmfluid" install="github:lmctl-ai/lmfluid@latest";
+p = _lmcode_ cli="lmfluid" install="github:lmctl-ai/lmfluid@latest";
 # lambda = 0 gives Poisson ratio 0, so E = 2 mu = 200 and plane strain = plane stress.
 let beam = fluid.elasticity(fluid.rect(80, 8, 10.0, 1.0), 2).lame(0.0, 100.0).force("0", "-0.01", "0").displacement(4, "0", "0", "0").solve();
 fluid.assert_close(beam.value(10.0, 0.5, 0.0, 1), -0.756, 0.002);
@@ -21,7 +21,7 @@ for (i in range(0, 41)) {
 t.save_csv("build/examples/cantilever_beam.csv");
 fluid.assert_close(t.get(10, 2), 1.6875, 0.01);
 fluid.assert_close(t.get(40, 3), -0.1, 0.001);
-end _dsl_
+end _lmcode_
 savedsl(p, "build/cantilever_beam.dslb");
 r = system ${dsl_cli(p)} --dsl build/cantilever_beam.dslb;
 assert(r.code == 0);
@@ -67,7 +67,7 @@ root_eb = sprintf("%.3f", sig(0.5));
 
 mkdir("images");
 mkdir("build/rendered");
-d = _dsl_ cli="lmdraw" install="github:lmctl-ai/lmdraw@latest";
+d = _lmcode_ cli="lmdraw" install="github:lmctl-ai/lmdraw@latest";
 scene.canvas(960, 660, "#ffffff");
 scene.text(36.0, 44.0, 23.0, "A cantilever sags exactly as beam theory predicts", "#1d2733").set_attr("font-weight", "700");
 scene.text(36.0, 70.0, 14.5, "2D finite elements (P2, 80 x 8 cells) for a clamped strip under uniform load, against Euler-Bernoulli", "#5a6672");
@@ -111,7 +111,7 @@ scene.text(766.0, 526.0, 13.0, "Stress at x = 0.5", "#5a6672");
 scene.text(766.0, 550.0, 20.0, ${root_txt}, "#007f86").set_attr("font-weight", "700");
 scene.text(766.0, 574.0, 12.5, "beam theory " + ${root_eb}, "#1d2733");
 scene.render_png("build/rendered/cantilever_beam.png", 960, 660, 1);
-end _dsl_
+end _lmcode_
 savedsl(d, "build/cantilever_beam-draw.dslb");
 r = system ${dsl_cli(d)} --dsl build/cantilever_beam-draw.dslb;
 if (r.code != 0) { println(r.stdout); println(r.stderr); }

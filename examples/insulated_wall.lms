@@ -6,7 +6,7 @@
 # reads the flux back as -k dT/dx; a sweep over insulation thickness shows why the
 # first few centimetres matter most. Writes images/insulated_wall.png.
 mkdir("build/examples");
-p = _dsl_ cli="lmfluid" install="github:lmctl-ai/lmfluid@latest";
+p = _lmcode_ cli="lmfluid" install="github:lmctl-ai/lmfluid@latest";
 # k(x) for brick | wool | plaster; 0.5 + 0.5 sign(x - a) steps from 0 to 1 at x = a
 let kx = "0.72 + (0.04 - 0.72)*(0.5 + 0.5*sign(x - 0.2)) + (0.5 - 0.04)*(0.5 + 0.5*sign(x - 0.3))";
 let wall = fluid.poisson(fluid.rect(320, 2, 0.32, 0.02), 1).diffusion(kx).dirichlet(4, "-5").dirichlet(2, "20").solve();
@@ -35,7 +35,7 @@ for (j in range(0, 11)) {
   fluid.assert_close(sweep.get(j, 1), sweep.get(j, 2), 0.0005);
 }
 sweep.save_csv("build/examples/insulated_wall-sweep.csv");
-end _dsl_
+end _lmcode_
 savedsl(p, "build/insulated_wall.dslb");
 r = system ${dsl_cli(p)} --dsl build/insulated_wall.dslb;
 assert(r.code == 0);
@@ -77,7 +77,7 @@ t2_txt = sprintf("%.1f", t2) + " °C";
 
 mkdir("images");
 mkdir("build/rendered");
-d = _dsl_ cli="lmdraw" install="github:lmctl-ai/lmdraw@latest";
+d = _lmcode_ cli="lmdraw" install="github:lmctl-ai/lmdraw@latest";
 scene.canvas(960, 600, "#ffffff");
 scene.text(36.0, 44.0, 23.0, ${title_txt}, "#1d2733").set_attr("font-weight", "700");
 scene.text(36.0, 70.0, 14.5, "Steady conduction through brick, mineral wool and plaster: finite elements against resistances in series", "#5a6672");
@@ -117,7 +117,7 @@ scene.text(758.0, 235.0, 13.0, "finite elements", "#1d2733");
 scene.line(737.0, 256.0, 753.0, 256.0, "#df6b38", 3.0);
 scene.text(758.0, 261.0, 13.0, "1 / sum(t / k)", "#1d2733");
 scene.render_png("build/rendered/insulated_wall.png", 960, 600, 1);
-end _dsl_
+end _lmcode_
 savedsl(d, "build/insulated_wall-draw.dslb");
 r = system ${dsl_cli(d)} --dsl build/insulated_wall-draw.dslb;
 if (r.code != 0) { println(r.stdout); println(r.stderr); }

@@ -3,7 +3,7 @@
 # velocity profiles through the cavity centre are compared with the published table.
 # Writes images/cavity_ghia.png (speed map plus both centreline profiles).
 mkdir("build/examples");
-p = _dsl_ cli="lmfluid" install="github:lmctl-ai/lmfluid@latest";
+p = _lmcode_ cli="lmfluid" install="github:lmctl-ai/lmfluid@latest";
 let n = 64;
 let lid = 0.08;
 # Re = U n / nu = 100
@@ -25,7 +25,7 @@ let before = c.velocity(32, 32, 0);
 c.run(500);
 fluid.assert_close(c.velocity(32, 32, 0), before, 0.000001);
 fluid.assert_true(c.mach() < 0.3);
-end _dsl_
+end _lmcode_
 savedsl(p, "build/cavity_ghia.dslb");
 r = system ${dsl_cli(p)} --dsl build/cavity_ghia.dslb;
 if (r.code != 0) { println(r.stdout); println(r.stderr); }
@@ -37,7 +37,7 @@ write_file("build/examples/cavity_ghia-v.csv", "1.0000,0.00000\n0.9688,-0.05906\
 
 mkdir("build/visual");
 mkdir("images");
-v = _dsl_ cli="lmplot" install="github:lmctl-ai/lmplot@latest";
+v = _lmcode_ cli="lmplot" install="github:lmctl-ai/lmplot@latest";
 plot.png("images/cavity_ghia.png", 960, 500);
 plot.cmd("set datafile separator ','");
 plot.cmd("set multiplot title 'Lid-driven cavity, Re = 100: lattice Boltzmann (64 x 64) against Ghia et al. 1982' font ',14'");
@@ -89,7 +89,7 @@ plot.cmd("set key top right samplen 1.5 box opaque");
 plot.cmd("plot 'build/examples/cavity_ghia-profiles.csv' using 3:4 with lines lw 3 lc rgb '#007f86' title 'D2Q9', 'build/examples/cavity_ghia-v.csv' using 1:2 with points pt 7 ps 1.6 lc rgb '#df6b38' title 'Ghia 1982'");
 plot.cmd("unset multiplot");
 plot.close();
-end _dsl_
+end _lmcode_
 savedsl(v, "build/visual/cavity_ghia.dslb");
 r = system ${dsl_cli(v)} --dsl build/visual/cavity_ghia.dslb;
 if (r.code != 0) { println(r.stdout); println(r.stderr); }

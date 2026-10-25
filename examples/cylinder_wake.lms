@@ -8,7 +8,7 @@
 # for an isolated cylinder: each one sits in the wake of its periodic upstream neighbour.
 # Writes images/cylinder_wake.png and, when ffmpeg is on PATH, images/cylinder_wake.gif.
 mkdir("build/examples");
-p = _dsl_ cli="lmfluid" install="github:lmctl-ai/lmfluid@latest";
+p = _lmcode_ cli="lmfluid" install="github:lmctl-ai/lmfluid@latest";
 let nx = 320;
 let ny = 80;
 let nu = 0.004;
@@ -38,7 +38,7 @@ for (k in range(0, 120)) {
 }
 rec.save_csv("build/examples/cylinder_wake-probe.csv");
 fluid.assert_true(f.mach() < 0.3);
-end _dsl_
+end _lmcode_
 savedsl(p, "build/cylinder_wake.dslb");
 r = system ${dsl_cli(p)} --dsl build/cylinder_wake.dslb;
 if (r.code != 0) { println(r.stdout); println(r.stderr); }
@@ -90,7 +90,7 @@ sub = "shedding period " + sprintf("%.0f", period) + " steps: lift swings once p
 
 mkdir("build/visual");
 mkdir("images");
-v = _dsl_ cli="lmplot" install="github:lmctl-ai/lmplot@latest";
+v = _lmcode_ cli="lmplot" install="github:lmctl-ai/lmplot@latest";
 plot.png("images/cylinder_wake.png", 960, 560);
 plot.cmd("set datafile separator ','");
 plot.cmd("set multiplot title " + ${"'" + title + "'"} + " font ',14'");
@@ -153,7 +153,7 @@ for (k in range(0, 20)) {
   plot.cmd("plot 'build/examples/cylinder_wake-" + str(k) + ".csv' using 1:2:3 with image");
   plot.close();
 }
-end _dsl_
+end _lmcode_
 savedsl(v, "build/visual/cylinder_wake.dslb");
 r = system ${dsl_cli(v)} --dsl build/visual/cylinder_wake.dslb;
 if (r.code != 0) { println(r.stdout); println(r.stderr); }

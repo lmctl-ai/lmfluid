@@ -1,9 +1,9 @@
-p = _dsl_ cli="lmfluid" install="github:lmctl-ai/lmfluid@latest";
+p = _lmcode_ cli="lmfluid" install="github:lmctl-ai/lmfluid@latest";
 let mesh = fluid.rect(12, 12, 1.0, 1.0);
 let problem = fluid.poisson(mesh, 2).source("-4.0").dirichlet(0, "x*x + y*y");
 let field = problem.solve();
 fluid.assert_close(field.l2_error("x*x + y*y"), 0.0, 0.000001);
 fluid.assert_close(field.value(0.5, 0.5), 0.5, 0.000001);
 fluid.assert_true(field.dofs() > 0);
-end _dsl_
+end _lmcode_
 savedsl(p, "build/manufactured_poisson.dslb");
