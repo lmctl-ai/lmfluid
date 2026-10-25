@@ -29,10 +29,14 @@ cmake --build build --parallel 4      # Build binary at build/lmfluid
 
 ## SDK pin and sync
 
-The vendored SDK header is pinned via `sdk.lock` pointing to `https://github.com/lmctl-ai/lmcode-cpp`:
+The vendored SDK (VM header `cpp/dslvm.hpp`, catalog headers `cpp/stdlib/*.hpp`, catalog schema
+`cpp/std/lmcode-std.schema.json`, `scripts/merge-std.py`) is pinned via `sdk.lock` pointing to
+`https://github.com/lmctl-ai/lmcode-cpp`:
 ```sh
-scripts/sync-sdk.sh                   # Refetches pinned cpp/dslvm.hpp and verifies sha256
+scripts/sync-sdk.sh                   # Refetches all pinned SDK files and verifies per-file sha256
 ```
+The pinned VM registers the built-in standard library (string, math, collections, file) on every
+registry by default, so lmscript 0.2.420's implicit std compiles and loads without host declarations.
 
 ## Adding an example or function
 
