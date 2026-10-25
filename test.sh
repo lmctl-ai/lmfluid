@@ -42,10 +42,47 @@ ok "schema matches the registrations in cpp/main.cpp"
 "$HOST" --dsl-schema --json >"$WORK/schema.json" || fail "embedded schema print"
 cmp -s "$WORK/schema.json" schema/lmfluid.dsl.json || fail "embedded schema differs from schema/lmfluid.dsl.json"
 ok "--dsl-schema --json prints byte-identical embedded schema bytes"
-WITHOUT_STD=""
-"$LMSCRIPT" --help 2>&1 | grep -q -- '--without-std' && WITHOUT_STD="--without-std"
-diff -u <("$LMSCRIPT" --dsl-signatures schema/lmfluid.dsl.json $WITHOUT_STD) <("$HOST" --dsl-signatures) || fail "host/compiler signatures differ"
-ok "host registry matches compiler signatures"
+# The registry implements the host declarations plus the SDK built-in standard, which the
+# compiler injects implicitly: host-only parity comes from --without-std, std signatures
+# from the pinned catalog schema. The tracked schema must not declare standard members.
+python3 scripts/merge-std.py --host-only schema/lmfluid.dsl.json "$WORK/host-only-schema.json" || fail "merge-std --host-only"
+cmp -s schema/lmfluid.dsl.json "$WORK/host-only-schema.json" || fail "schema/lmfluid.dsl.json declares standard members"
+"$HOST" --dsl-signatures >"$WORK/registry.sig"
+"$LMSCRIPT" --dsl-signatures cpp/std/lmcode-std.schema.json >"$WORK/std.sig"
+python3 - "$WORK" <<'PYHOST' || fail "host-only signature parity"
+from pathlib import Path
+import sys
+work = Path(sys.argv[1])
+registry = set((work/"registry.sig").read_text().splitlines())
+standard = set((work/"std.sig").read_text().splitlines())
+(work/"host.sig").write_text("".join(line + "\n" for line in sorted(registry - standard)))
+PYHOST
+diff -u <("$LMSCRIPT" --dsl-signatures schema/lmfluid.dsl.json --without-std) "$WORK/host.sig" || fail "host-only registry/compiler signatures differ"
+ok "host registry matches compiler signatures (host-only parity; std registered by default)"
+
+# The built-in standard registers by default: one call per family (string, math, collections,
+# file) compiles against the implicit std and runs on the host registry. File calls stay in $WORK.
+cat >"$WORK/std-lib.lms" <<LMS
+p = _lmcode_ cli="lmfluid";
+fluid.assert_true(str_len("hello") == 5);
+fluid.assert_true(str_upper("ab") == "AB");
+fluid.assert_close(math_sqrt(16.0), 4.0, 0.000001);
+fluid.assert_true(math_max(3, 7) == 7);
+let names = str_list().add("alpha").add("beta");
+fluid.assert_true(names.len() == 2);
+fluid.assert_true(names.at(1) == "beta");
+let nums = int_list().add(4).add(9);
+fluid.assert_true(nums.at(0) + nums.at(1) == 13);
+file_write("$WORK/std-file.txt", "one\ntwo");
+fluid.assert_true(file_exists("$WORK/std-file.txt"));
+fluid.assert_true(file_read("$WORK/std-file.txt") == "one\ntwo");
+fluid.assert_true(file_lines("$WORK/std-file.txt").len() == 2);
+end _lmcode_
+savedsl(p, "$WORK/std-lib.dslb");
+LMS
+"$LMSCRIPT" "$WORK/std-lib.lms" >"$WORK/std-lib.log" 2>&1 || { cat "$WORK/std-lib.log" >&2; fail "std compile"; }
+[ "$("$HOST" --dsl "$WORK/std-lib.dslb")" = '{"ok": true, "result": null}' ] || fail "std run did not report the exact success line"
+ok "built-in std loads and runs: string, math, collections and file families"
 "$HOST" --notices >"$WORK/notices.txt" || fail "--notices"
 grep -q "MFEM" "$WORK/notices.txt" || fail "--notices missing third-party text"
 cmp -s "$WORK/notices.txt" THIRD_PARTY_NOTICES || fail "--notices differs from THIRD_PARTY_NOTICES"
