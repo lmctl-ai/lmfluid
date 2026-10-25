@@ -55,7 +55,8 @@ import sys
 work = Path(sys.argv[1])
 registry = set((work/"registry.sig").read_text().splitlines())
 standard = set((work/"std.sig").read_text().splitlines())
-(work/"host.sig").write_text("".join(line + "\n" for line in sorted(registry - standard)))
+assert len(standard) == 72 and standard <= registry, "registry lacks standard signatures"
+(work/"host.sig").write_bytes("".join(line + "\n" for line in sorted(registry - standard)).encode("utf-8"))
 PYHOST
 diff -u <("$LMSCRIPT" --dsl-signatures schema/lmfluid.dsl.json --without-std) "$WORK/host.sig" || fail "host-only registry/compiler signatures differ"
 ok "host registry matches compiler signatures (host-only parity; std registered by default)"
