@@ -6,7 +6,7 @@ s=(r/'README.md').read_text(encoding='utf-8')
 # the repository name comes from CMakeLists.txt, so the check also works in a git worktree
 name=re.search(r'project\((\w+)',(r/'CMakeLists.txt').read_text(encoding='utf-8')).group(1)
 prefix="https://raw.githubusercontent.com/lmctl-ai/"+name+"/main/examples/"
-urls=re.findall(r'lmctl autorun (https://raw\.githubusercontent\.com/[^\s`|<>]+\.lms)',s)
+urls=re.findall(r'lmctl(?: autorun)? (https://raw\.githubusercontent\.com/[^\s`|<>]+\.lms)',s)
 assert len(urls)>=14, "Every gallery card and example listing needs an autorun command"
 assert not re.search(r'\]\(examples/[^)]+\.lms\)',s), "Use autorun commands instead of relative source links"
 for url in urls:

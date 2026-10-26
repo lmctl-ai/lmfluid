@@ -7,7 +7,7 @@ Finite elements (MFEM) and lattice-Boltzmann flow for lmscript: worked engineeri
 
 ![Von Kármán vortex street behind a cylinder](docs/images/cylinder_wake.gif)
 
-`lmctl autorun https://raw.githubusercontent.com/lmctl-ai/lmfluid/main/examples/cylinder_wake.lms`
+`lmctl https://raw.githubusercontent.com/lmctl-ai/lmfluid/main/examples/cylinder_wake.lms`
 
 Every picture below is made by one example script. Paste its command into a terminal and the same picture appears in `images/` of the current directory.
 
@@ -17,13 +17,13 @@ Every picture below is made by one example script. Paste its command into a term
 | --- | --- | --- |
 | ![Vorticity behind a cylinder and the lift and drag history](docs/images/cylinder_wake.png) | ![Speed map and centreline profiles against the Ghia 1982 table](docs/images/cavity_ghia.png) | ![Streamlines at Re 10, 100 and 400](docs/images/cavity_vortex.png) |
 | A cylinder in a channel sheds vortices at Re ≈ 130; lift swings once per period, drag twice, and St = fD/U ≈ 0.3 as in the Schäfer & Turek benchmark. | Both centreline velocity profiles at Re = 100 land on the 30 tabulated points of the classic 1982 benchmark. | A what-if sweep over Re = 10, 100, 400: the vortex centre lands on Ghia's coordinates and a corner eddy appears. |
-| `lmctl autorun https://raw.githubusercontent.com/lmctl-ai/lmfluid/main/examples/cylinder_wake.lms` | `lmctl autorun https://raw.githubusercontent.com/lmctl-ai/lmfluid/main/examples/cavity_ghia.lms` | `lmctl autorun https://raw.githubusercontent.com/lmctl-ai/lmfluid/main/examples/cavity_vortex.lms` |
+| `lmctl https://raw.githubusercontent.com/lmctl-ai/lmfluid/main/examples/cylinder_wake.lms` | `lmctl https://raw.githubusercontent.com/lmctl-ai/lmfluid/main/examples/cavity_ghia.lms` | `lmctl https://raw.githubusercontent.com/lmctl-ai/lmfluid/main/examples/cavity_vortex.lms` |
 
 | Poiseuille flow and its start-up | Viscosity damps a shear wave |
 | --- | --- |
 | ![Channel sketch, parabolic profile and start-up curve](docs/images/channel.png) | ![A sinusoidal shear wave decaying at the viscous rate](docs/images/shear_decay.png) |
 | A body force between two plates gives the exact parabola gH²/8ν at the centre, reached along the exact start-up series. | A periodic shear wave decays as exp(-νk²t), the textbook way to measure a lattice's viscosity. |
-| `lmctl autorun https://raw.githubusercontent.com/lmctl-ai/lmfluid/main/examples/channel.lms` | `lmctl autorun https://raw.githubusercontent.com/lmctl-ai/lmfluid/main/examples/shear_decay.lms` |
+| `lmctl https://raw.githubusercontent.com/lmctl-ai/lmfluid/main/examples/channel.lms` | `lmctl https://raw.githubusercontent.com/lmctl-ai/lmfluid/main/examples/shear_decay.lms` |
 
 ### Structures
 
@@ -31,13 +31,13 @@ Every picture below is made by one example script. Paste its command into a term
 | --- | --- | --- |
 | ![Cantilever sketch with deflection and stress against Euler-Bernoulli](docs/images/cantilever_beam.png) | ![3D render of the bent beam coloured by bending stress](docs/images/cantilever_3d.png) | ![Stress map around a hole and Kirsch's curve](docs/images/plate_hole.png) |
 | Tip deflection 0.7560 = Euler-Bernoulli 0.7500 + Timoshenko's shear term; stress follows 3q(L-x)²/h². | Each finite element extruded at its deformed position by lmcad: tension on top, compression underneath. | A hole in a plate under tension triples the stress beside it: K_t = 3.02 against Heywood's 3.03. |
-| `lmctl autorun https://raw.githubusercontent.com/lmctl-ai/lmfluid/main/examples/cantilever_beam.lms` | `lmctl autorun https://raw.githubusercontent.com/lmctl-ai/lmfluid/main/examples/cantilever_3d.lms` | `lmctl autorun https://raw.githubusercontent.com/lmctl-ai/lmfluid/main/examples/plate_hole.lms` |
+| `lmctl https://raw.githubusercontent.com/lmctl-ai/lmfluid/main/examples/cantilever_beam.lms` | `lmctl https://raw.githubusercontent.com/lmctl-ai/lmfluid/main/examples/cantilever_3d.lms` | `lmctl https://raw.githubusercontent.com/lmctl-ai/lmfluid/main/examples/plate_hole.lms` |
 
 | The patch test |
 | --- |
 | ![Reference and deformed meshes under a uniform strain](docs/images/elastic_stretch.png) |
 | A uniform stretch and shear is reproduced to rounding error, the first thing to check in any element. |
-| `lmctl autorun https://raw.githubusercontent.com/lmctl-ai/lmfluid/main/examples/elastic_stretch.lms` |
+| `lmctl https://raw.githubusercontent.com/lmctl-ai/lmfluid/main/examples/elastic_stretch.lms` |
 
 ### Heat
 
@@ -45,13 +45,13 @@ Every picture below is made by one example script. Paste its command into a term
 | --- | --- | --- |
 | ![Temperature through brick, wool and plaster and the U-value sweep](docs/images/insulated_wall.png) | ![Voxel render of a heated cube with one octant cut away](docs/images/heated_cube.png) | ![Cooling eigenmode and its exponential decay](docs/images/heat_clock.png) |
 | Brick, wool and plaster in series: 10 cm of wool cuts the heat loss by 89%, and the U-value sweep matches 1/Σ(t/k). | Uniform heating with cold faces: the 3D core reaches 0.05621, the series solution. | The slowest mode keeps its shape and decays as exp(-2π²t); [animated](docs/images/heat_clock.gif). |
-| `lmctl autorun https://raw.githubusercontent.com/lmctl-ai/lmfluid/main/examples/insulated_wall.lms` | `lmctl autorun https://raw.githubusercontent.com/lmctl-ai/lmfluid/main/examples/heated_cube.lms` | `lmctl autorun https://raw.githubusercontent.com/lmctl-ai/lmfluid/main/examples/heat_clock.lms` |
+| `lmctl https://raw.githubusercontent.com/lmctl-ai/lmfluid/main/examples/insulated_wall.lms` | `lmctl https://raw.githubusercontent.com/lmctl-ai/lmfluid/main/examples/heated_cube.lms` | `lmctl https://raw.githubusercontent.com/lmctl-ai/lmfluid/main/examples/heat_clock.lms` |
 
 | Diffusion smooths short wavelengths first |
 | --- |
 | ![Temperature profile before and after diffusion](docs/images/heated_plate.png) |
 | Two hot bumps merge into one as the fine structure decays fastest. |
-| `lmctl autorun https://raw.githubusercontent.com/lmctl-ai/lmfluid/main/examples/heated_plate.lms` |
+| `lmctl https://raw.githubusercontent.com/lmctl-ai/lmfluid/main/examples/heated_plate.lms` |
 
 ### Numerics
 
@@ -59,14 +59,14 @@ Every picture below is made by one example script. Paste its command into a term
 | --- | --- | --- |
 | ![Error against mesh size and unknowns for P1, P2, P3](docs/images/fem_convergence.png) | ![Poisson field with quadratic boundary data](docs/images/poisson.png) | ![Poisson dome from a sinusoidal source](docs/images/sine_dome.png) |
 | Errors fall as h², h³, h⁴ for P1, P2, P3; per unknown, higher order wins by orders of magnitude. | -Δu = -4 with u = x² + y² on the edges is solved exactly by P2 elements. | The source 2π² sin(πx) sin(πy) gives exactly the dome sin(πx) sin(πy) of height 1. |
-| `lmctl autorun https://raw.githubusercontent.com/lmctl-ai/lmfluid/main/examples/fem_convergence.lms` | `lmctl autorun https://raw.githubusercontent.com/lmctl-ai/lmfluid/main/examples/poisson.lms` | `lmctl autorun https://raw.githubusercontent.com/lmctl-ai/lmfluid/main/examples/sine_dome.lms` |
+| `lmctl https://raw.githubusercontent.com/lmctl-ai/lmfluid/main/examples/fem_convergence.lms` | `lmctl https://raw.githubusercontent.com/lmctl-ai/lmfluid/main/examples/poisson.lms` | `lmctl https://raw.githubusercontent.com/lmctl-ai/lmfluid/main/examples/sine_dome.lms` |
 
 ## Quick start (one minute)
 
 ```sh
 npm install -g @lmctl-ai/lmctl
 mkdir try-lmfluid && cd try-lmfluid
-lmctl autorun https://raw.githubusercontent.com/lmctl-ai/lmfluid/main/examples/quickstart.lms
+lmctl https://raw.githubusercontent.com/lmctl-ai/lmfluid/main/examples/quickstart.lms
 ```
 
 The first run downloads the released lmfluid and lmdraw binaries for your platform (Linux x64/arm64 binaries require dynamic glibc >= 2.35 and statically link MFEM, libstdc++ and libgcc; macOS arm64/x64 and Windows x64 require no extra runtime libraries) and writes `images/quickstart.png`, which draws the pipeline it just ran:
