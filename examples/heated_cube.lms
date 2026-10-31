@@ -34,7 +34,7 @@ for (k in range(0, n)) {
 t.save_csv("build/examples/heated_cube.csv");
 end _lmcode_
 savedsl(p, "build/heated_cube.dslb");
-r = system ${dsl_cli(p)} --dsl build/heated_cube.dslb;
+r = system ${dsl_cli(p)} --lmcode build/heated_cube.dslb;
 if (r.code != 0) { println(r.stdout); println(r.stderr); }
 assert(r.code == 0);
 
@@ -85,7 +85,7 @@ scene.camera(27.0, 2.6, 2.1, 2.9, 0.47, 0.44, 0.47);
 scene.render_png("build/visual/heated_cube-render.png", 620, 480);
 end _lmcode_
 savedsl(c, "build/visual/heated_cube-cad.dslb");
-r = system ${dsl_cli(c)} --dsl build/visual/heated_cube-cad.dslb;
+r = system ${dsl_cli(c)} --lmcode build/visual/heated_cube-cad.dslb;
 if (r.code != 0) { println(r.stdout); println(r.stderr); }
 assert(r.code == 0);
 
@@ -128,7 +128,7 @@ scene.text(666.0, 524.0, 12.5, "-ΔT = 1 in a unit cube, T = 0 on faces", "#5a66
 scene.render_png("build/rendered/heated_cube.png", 940, 560, 1);
 end _lmcode_
 savedsl(d, "build/visual/heated_cube-draw.dslb");
-r = system ${dsl_cli(d)} --dsl build/visual/heated_cube-draw.dslb;
+r = system ${dsl_cli(d)} --lmcode build/visual/heated_cube-draw.dslb;
 if (r.code != 0) { println(r.stdout); println(r.stderr); }
 assert(r.code == 0);
 copy_file("build/rendered/heated_cube.png", "images/heated_cube.png");

@@ -15,7 +15,7 @@ out.save_csv("build/examples/quickstart.csv");
 field.sample(41, 41).save_csv("build/examples/quickstart-field.csv");
 end _lmcode_
 savedsl(p, "build/quickstart.dslb");
-r = system ${dsl_cli(p)} --dsl build/quickstart.dslb;
+r = system ${dsl_cli(p)} --lmcode build/quickstart.dslb;
 if (r.code != 0) { println(r.stdout); println(r.stderr); }
 assert(r.code == 0);
 row = csv_parse(read_file("build/examples/quickstart.csv"), false)[0];
@@ -42,7 +42,7 @@ scene.text(312.0, 190.0, 12.0, "installs hosts, checks", "#5a6672").set_attr("te
 scene.text(312.0, 210.0, 12.0, "_dsl_ blocks, savedsl", "#5a6672").set_attr("text-anchor", "middle");
 let s3 = scene.rect(428.0, 112.0, 190.0, 156.0, "#e3f2f2");
 s3.set_attr("stroke", "#007f86"); s3.set_attr("stroke-width", "2.5"); s3.set_attr("rx", "10");
-scene.text(523.0, 140.0, 16.0, "lmfluid --dsl", "#00545a").set_attr("text-anchor", "middle").set_attr("font-weight", "700");
+scene.text(523.0, 140.0, 16.0, "lmfluid --lmcode", "#00545a").set_attr("text-anchor", "middle").set_attr("font-weight", "700");
 scene.text(523.0, 166.0, 12.5, "MFEM finite elements:", "#1d2733").set_attr("text-anchor", "middle");
 scene.text(523.0, 184.0, 12.5, "Poisson, heat, elasticity", "#1d2733").set_attr("text-anchor", "middle");
 scene.text(523.0, 208.0, 12.5, "D2Q9 lattice Boltzmann:", "#1d2733").set_attr("text-anchor", "middle");
@@ -71,7 +71,7 @@ scene.text(54.0, 382.0, 13.0, "    .source(\"-4\").dirichlet(0, \"x*x+y*y\").sol
 scene.text(54.0, 406.0, 13.0, "fluid.assert_close(field.value(0.5, 0.5), 0.5, 0.000001);", "#e8f1f8");
 scene.text(54.0, 430.0, 13.0, "end _dsl_", "#e8f1f8");
 scene.text(54.0, 454.0, 13.0, "savedsl(p, \"build/quickstart.dslb\");", "#e8f1f8");
-scene.text(54.0, 474.0, 13.0, "r = system $" + "{dsl_cli(p)} --dsl build/quickstart.dslb;", "#e8f1f8");
+scene.text(54.0, 474.0, 13.0, "r = system $" + "{dsl_cli(p)} --lmcode build/quickstart.dslb;", "#e8f1f8");
 let res = scene.rect(626.0, 310.0, 304.0, 176.0, "#f5f8fa");
 res.set_attr("stroke", "#d5dde5"); res.set_attr("rx", "8");
 scene.text(644.0, 340.0, 14.0, "This run returned", "#5a6672");
@@ -83,7 +83,7 @@ scene.text(644.0, 470.0, 13.0, "which P2 elements represent exactly.", "#5a6672"
 scene.render_png("build/rendered/quickstart.png", 960, 520, 1);
 end _lmcode_
 savedsl(d, "build/visual/quickstart-draw.dslb");
-r = system ${dsl_cli(d)} --dsl build/visual/quickstart-draw.dslb;
+r = system ${dsl_cli(d)} --lmcode build/visual/quickstart-draw.dslb;
 if (r.code != 0) { println(r.stdout); println(r.stderr); }
 assert(r.code == 0);
 copy_file("build/rendered/quickstart.png", "images/quickstart.png");

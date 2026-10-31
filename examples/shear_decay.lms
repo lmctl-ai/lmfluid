@@ -3,7 +3,7 @@ p = _lmcode_ cli="lmfluid" install="github:lmctl-ai/lmfluid@latest";
 let v=fluid.periodic(32,32,0.1).init("0.03*sin(2*pi*y/32)","0").run(400);fluid.assert_close(v.velocity(0,8,0),fluid.eval("0.03*exp(-0.1*(2*pi/32)^2*400)*sin(2*pi*8.5/32)"),0.0002);v.sample().save_csv("build/examples/shear_decay.csv");
 end _lmcode_
 savedsl(p, "build/shear_decay.dslb");
-r = system ${dsl_cli(p)} --dsl build/shear_decay.dslb;
+r = system ${dsl_cli(p)} --lmcode build/shear_decay.dslb;
 assert(r.code == 0);
 
 mkdir("build/visual");
@@ -28,7 +28,7 @@ plot.cmd("plot 0.03*sin(2*pi*x/32) with lines ls 3 dt 2 title 'Initial', 'build/
 plot.close();
 end _lmcode_
 savedsl(v,"build/visual/shear_decay.dslb");
-r = system ${dsl_cli(v)} --dsl build/visual/shear_decay.dslb;
+r = system ${dsl_cli(v)} --lmcode build/visual/shear_decay.dslb;
 if (r.code!=0) { println(r.stdout); println(r.stderr); }
 assert(r.code==0);
 

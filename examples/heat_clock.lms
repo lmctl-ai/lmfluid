@@ -14,7 +14,7 @@ for (i in range(0, 24)) {
 }
 end _lmcode_
 savedsl(p, "build/heat_clock.dslb");
-r = system ${dsl_cli(p)} --dsl build/heat_clock.dslb;
+r = system ${dsl_cli(p)} --lmcode build/heat_clock.dslb;
 assert(r.code == 0);
 
 # centre temperature of every snapshot, for the decay curve
@@ -84,7 +84,7 @@ for (k in range(0, 25)) {
 }
 end _lmcode_
 savedsl(v, "build/visual/heat_clock.dslb");
-r = system ${dsl_cli(v)} --dsl build/visual/heat_clock.dslb;
+r = system ${dsl_cli(v)} --lmcode build/visual/heat_clock.dslb;
 if (r.code != 0) { println(r.stdout); println(r.stderr); }
 assert(r.code == 0);
 println("wrote images/heat_clock.png");

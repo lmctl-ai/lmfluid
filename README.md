@@ -84,13 +84,13 @@ fluid.assert_close(field.value(0.5, 0.5), 0.5, 0.000001);
 field.sample(41, 41).save_csv("poisson.csv");
 end _lmcode_
 savedsl(p, "poisson.dslb");
-r = system ${dsl_cli(p)} --dsl poisson.dslb;
+r = system ${dsl_cli(p)} --lmcode poisson.dslb;
 assert(r.code == 0);
 ```
 
 ## API
 
-The host CLI accepts only `--dsl FILE...`, `--dry-run --dsl FILE...`, `--version`, `--notices`, `--dsl-schema [--json]` and `--dsl-signatures`. Dry run validates bytecode without solving or writing files. Usage errors exit 2; load and run errors exit 3. Warnings (see the LBM limits) go to stderr; stdout carries only the JSON result line.
+The host CLI accepts only `--lmcode FILE...`, `--dry-run --lmcode FILE...`, `--version`, `--notices`, `--lmcode-schema [--json]` and `--lmcode-signatures`. Dry run validates bytecode without solving or writing files. Usage errors exit 2; load and run errors exit 3. Warnings (see the LBM limits) go to stderr; stdout carries only the JSON result line.
 
 | API | Purpose |
 | --- | --- |

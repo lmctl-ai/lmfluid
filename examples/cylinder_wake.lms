@@ -40,7 +40,7 @@ rec.save_csv("build/examples/cylinder_wake-probe.csv");
 fluid.assert_true(f.mach() < 0.3);
 end _lmcode_
 savedsl(p, "build/cylinder_wake.dslb");
-r = system ${dsl_cli(p)} --dsl build/cylinder_wake.dslb;
+r = system ${dsl_cli(p)} --lmcode build/cylinder_wake.dslb;
 if (r.code != 0) { println(r.stdout); println(r.stderr); }
 assert(r.code == 0);
 
@@ -155,7 +155,7 @@ for (k in range(0, 20)) {
 }
 end _lmcode_
 savedsl(v, "build/visual/cylinder_wake.dslb");
-r = system ${dsl_cli(v)} --dsl build/visual/cylinder_wake.dslb;
+r = system ${dsl_cli(v)} --lmcode build/visual/cylinder_wake.dslb;
 if (r.code != 0) { println(r.stdout); println(r.stderr); }
 assert(r.code == 0);
 println("wrote images/cylinder_wake.png");

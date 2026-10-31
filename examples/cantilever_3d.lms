@@ -26,7 +26,7 @@ t.save_csv("build/examples/cantilever_3d.csv");
 fluid.assert_close(t.get(4 * 41 + 40, 3), -0.756, 0.002);
 end _lmcode_
 savedsl(p, "build/cantilever_3d.dslb");
-r = system ${dsl_cli(p)} --dsl build/cantilever_3d.dslb;
+r = system ${dsl_cli(p)} --lmcode build/cantilever_3d.dslb;
 assert(r.code == 0);
 
 # keyframe rows (the CSV format lmcad reads): t = node index, x/y = deformed position,
@@ -82,7 +82,7 @@ scene.camera(19.0, 8.0, 3.4, 22.0, 4.9, -0.45, 0.8);
 scene.render_png("build/visual/cantilever_3d-render.png", 900, 470);
 end _lmcode_
 savedsl(c, "build/visual/cantilever_3d-cad.dslb");
-r = system ${dsl_cli(c)} --dsl build/visual/cantilever_3d-cad.dslb;
+r = system ${dsl_cli(c)} --lmcode build/visual/cantilever_3d-cad.dslb;
 if (r.code != 0) { println(r.stdout); println(r.stderr); }
 assert(r.code == 0);
 
@@ -120,7 +120,7 @@ scene.text(30.0, 532.0, 13.5, "grey rods: the unloaded beam", "#5a6672");
 scene.render_png("build/rendered/cantilever_3d.png", 900, 560, 1);
 end _lmcode_
 savedsl(d, "build/visual/cantilever_3d-draw.dslb");
-r = system ${dsl_cli(d)} --dsl build/visual/cantilever_3d-draw.dslb;
+r = system ${dsl_cli(d)} --lmcode build/visual/cantilever_3d-draw.dslb;
 if (r.code != 0) { println(r.stdout); println(r.stderr); }
 assert(r.code == 0);
 copy_file("build/rendered/cantilever_3d.png", "images/cantilever_3d.png");

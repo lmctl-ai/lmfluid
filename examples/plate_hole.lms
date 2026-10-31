@@ -97,7 +97,7 @@ let kt = line.get(0, 1);
 fluid.assert_true(kt > 2.85 && kt < 3.2);
 end _lmcode_
 savedsl(p, "build/plate_hole.dslb");
-r = system ${dsl_cli(p)} --dsl build/plate_hole.dslb;
+r = system ${dsl_cli(p)} --lmcode build/plate_hole.dslb;
 if (r.code != 0) { println(r.stdout); println(r.stderr); }
 assert(r.code == 0);
 line = csv_parse(read_file("build/examples/plate_hole-line.csv"), false);
@@ -148,7 +148,7 @@ plot.cmd("unset multiplot");
 plot.close();
 end _lmcode_
 savedsl(v, "build/visual/plate_hole.dslb");
-r = system ${dsl_cli(v)} --dsl build/visual/plate_hole.dslb;
+r = system ${dsl_cli(v)} --lmcode build/visual/plate_hole.dslb;
 if (r.code != 0) { println(r.stdout); println(r.stderr); }
 assert(r.code == 0);
 println("wrote images/plate_hole.png");

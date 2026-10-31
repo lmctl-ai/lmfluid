@@ -30,6 +30,7 @@ if [ ! -f "$BUILD_DIR/CMakeCache.txt" ] && command -v ninja >/dev/null 2>&1; the
 cmake -S . -B "$BUILD_DIR" $GEN -DCMAKE_BUILD_TYPE=Release >/dev/null
 cmake --build "$BUILD_DIR" --parallel "${BUILD_JOBS:-4}" >"$WORK/build.log" 2>&1 || { tail -40 "$WORK/build.log" >&2; fail "build"; }
 ok "build"
+python3 tests/check-host-flags.py schema/lmfluid.dsl.json "$HOST" || fail "hard host flag cutover"
 ctest --test-dir "$BUILD_DIR" --output-on-failure || fail "native fluid tests"
 ok "native fluid regression tests"
 python3 scripts/check-version.py "$HOST" || fail "package version agreement"
@@ -39,26 +40,26 @@ want_version="lmfluid $(sed -n 's/^project(lmfluid VERSION \([0-9.]*\).*/\1/p' C
 ok "--version prints exactly '$want_version'"
 python3 scripts/gen-schema.py >/dev/null && git diff --quiet -- schema/lmfluid.dsl.json 2>/dev/null || [ ! -e .git ] || fail "schema/lmfluid.dsl.json is stale: run scripts/gen-schema.py"
 ok "schema matches the registrations in cpp/main.cpp"
-"$HOST" --dsl-schema --json >"$WORK/schema.json" || fail "embedded schema print"
+"$HOST" --lmcode-schema --json >"$WORK/schema.json" || fail "embedded schema print"
 cmp -s "$WORK/schema.json" schema/lmfluid.dsl.json || fail "embedded schema differs from schema/lmfluid.dsl.json"
-ok "--dsl-schema --json prints byte-identical embedded schema bytes"
+ok "--lmcode-schema --json prints byte-identical embedded schema bytes"
 # The registry implements the host declarations plus the SDK built-in standard, which the
 # compiler injects implicitly: host-only parity comes from --without-std, std signatures
 # from the pinned catalog schema. The tracked schema must not declare standard members.
 python3 scripts/merge-std.py --host-only schema/lmfluid.dsl.json "$WORK/host-only-schema.json" || fail "merge-std --host-only"
 cmp -s schema/lmfluid.dsl.json "$WORK/host-only-schema.json" || fail "schema/lmfluid.dsl.json declares standard members"
-"$HOST" --dsl-signatures >"$WORK/registry.sig"
-"$LMSCRIPT" --dsl-signatures cpp/std/lmcode-std.schema.json >"$WORK/std.sig"
+"$HOST" --lmcode-signatures >"$WORK/registry.sig"
+"$LMSCRIPT" --lmcode-signatures cpp/std/lmcode-std.schema.json >"$WORK/std.sig"
 python3 - "$WORK" <<'PYHOST' || fail "host-only signature parity"
 from pathlib import Path
 import sys
 work = Path(sys.argv[1])
 registry = set((work/"registry.sig").read_text().splitlines())
 standard = set((work/"std.sig").read_text().splitlines())
-assert len(standard) == 72 and standard <= registry, "registry lacks standard signatures"
+assert len(standard) == 206 and standard <= registry, "registry lacks standard signatures"
 (work/"host.sig").write_bytes("".join(line + "\n" for line in sorted(registry - standard)).encode("utf-8"))
 PYHOST
-diff -u <("$LMSCRIPT" --dsl-signatures schema/lmfluid.dsl.json --without-std) "$WORK/host.sig" || fail "host-only registry/compiler signatures differ"
+diff -u <("$LMSCRIPT" --lmcode-signatures schema/lmfluid.dsl.json --without-std) "$WORK/host.sig" || fail "host-only registry/compiler signatures differ"
 ok "host registry matches compiler signatures (host-only parity; std registered by default)"
 
 # The built-in standard registers by default: one call per family (string, math, collections,
@@ -82,7 +83,7 @@ end _lmcode_
 savedsl(p, "$WORK/std-lib.dslb");
 LMS
 "$LMSCRIPT" "$WORK/std-lib.lms" >"$WORK/std-lib.log" 2>&1 || { cat "$WORK/std-lib.log" >&2; fail "std compile"; }
-[ "$("$HOST" --dsl "$WORK/std-lib.dslb")" = '{"ok": true, "result": null}' ] || fail "std run did not report the exact success line"
+[ "$("$HOST" --lmcode "$WORK/std-lib.dslb")" = '{"ok": true, "result": null}' ] || fail "std run did not report the exact success line"
 ok "built-in std loads and runs: string, math, collections and file families"
 "$HOST" --notices >"$WORK/notices.txt" || fail "--notices"
 grep -q "MFEM" "$WORK/notices.txt" || fail "--notices missing third-party text"
@@ -122,10 +123,10 @@ for src in tests/*.lms examples/*.lms; do
   "$LMSCRIPT" "$src" "build/$name.dslb" >"$WORK/$name.log" 2>&1 || { cat "$WORK/$name.log" >&2; fail "$name compile"; }
   n=$((n+1))
 done
-ok "$n programs compile as bytecode v5"
+ok "$n programs compile as bytecode v6"
 for src in tests/*.lms examples/*.lms; do
   name="$(basename "$src" .lms)"
-  "$HOST" --dsl "build/$name.dslb" >"$WORK/$name.out" 2>"$WORK/$name.err" || { cat "$WORK/$name.out" "$WORK/$name.err" >&2; fail "$name run"; }
+  "$HOST" --lmcode "build/$name.dslb" >"$WORK/$name.out" 2>"$WORK/$name.err" || { cat "$WORK/$name.out" "$WORK/$name.err" >&2; fail "$name run"; }
   grep -q '"ok": true' "$WORK/$name.out" || { cat "$WORK/$name.out" >&2; fail "$name did not report ok"; }
 done
 ok "$n programs run and pass their own assertions"
@@ -134,7 +135,7 @@ ok "$n programs run and pass their own assertions"
 for f in build/examples/*.csv; do echo "$(sha "$f") $f"; done >"$WORK/before.txt"
 for src in examples/*.lms; do
   name="$(basename "$src" .lms)"
-  "$HOST" --dsl "build/$name.dslb" >/dev/null 2>&1 || fail "$name rerun"
+  "$HOST" --lmcode "build/$name.dslb" >/dev/null 2>&1 || fail "$name rerun"
 done
 for f in build/examples/*.csv; do echo "$(sha "$f") $f"; done >"$WORK/after.txt"
 cmp -s "$WORK/before.txt" "$WORK/after.txt" || fail "result files differ on rerun"
@@ -149,7 +150,7 @@ end _dsl_
 savedsl(p, "$WORK/$1.dslb");
 LMS
   "$LMSCRIPT" "$WORK/$1.lms" >/dev/null 2>"$WORK/$1.cerr" || { cat "$WORK/$1.cerr" >&2; fail "$1 compile"; }
-  set +e; out="$("$HOST" --dsl "$WORK/$1.dslb" 2>/dev/null)"; code=$?; set -e
+  set +e; out="$("$HOST" --lmcode "$WORK/$1.dslb" 2>/dev/null)"; code=$?; set -e
   [ "$code" = 3 ] || fail "$1: exit code $code, expected 3 ($out)"
   echo "$out" | grep -q "$3" || fail "$1: message lacks '$3': $out"
 }
@@ -195,7 +196,7 @@ end _dsl_
 savedsl(p, "$WORK/$1.dslb");
 LMS
   "$LMSCRIPT" "$WORK/$1.lms" >/dev/null 2>"$WORK/$1.cerr" || { cat "$WORK/$1.cerr" >&2; fail "$1 compile"; }
-  "$HOST" --dsl "$WORK/$1.dslb" >"$WORK/$1.out" 2>"$WORK/$1.err" || fail "$1: a warning must not fail the run"
+  "$HOST" --lmcode "$WORK/$1.dslb" >"$WORK/$1.out" 2>"$WORK/$1.err" || fail "$1: a warning must not fail the run"
   grep -q '"ok": true' "$WORK/$1.out" || fail "$1: stdout is not the JSON result"
   grep -q "$3" "$WORK/$1.err" || fail "$1: stderr lacks '$3'"
 }
@@ -220,18 +221,18 @@ while (i < 1000000) {
   let f = fluid.periodic(1000, 1000, 0.1);
   i = i + 1;
 }'
-set +e; out="$(LMFLUID_MAX_MEMORY_MB=64 "$HOST" --dsl "$WORK/runaway.dslb" 2>"$WORK/runaway.err")"; code=$?; set -e
+set +e; out="$(LMFLUID_MAX_MEMORY_MB=64 "$HOST" --lmcode "$WORK/runaway.dslb" 2>"$WORK/runaway.err")"; code=$?; set -e
 [ "$code" = 3 ] || fail "runaway loop under LMFLUID_MAX_MEMORY_MB=64: exit $code, expected 3 ($out)"
 echo "$out" | grep -q "memory budget exceeded" || fail "runaway loop: JSON lacks the budget message: $out"
 grep -q "LMFLUID_MAX_MEMORY_MB" "$WORK/runaway.err" || fail "runaway loop: no budget message on stderr"
 # The budget also trips inside MFEM (mesh, assembly, sparse matrix): reported, never mfem_error/abort.
 budget_program fembudget 'let f = fluid.poisson(fluid.rect(300, 300, 1.0, 1.0), 3).source("1").solve();'
-set +e; out="$(LMFLUID_MAX_MEMORY_MB=64 "$HOST" --dsl "$WORK/fembudget.dslb" 2>/dev/null)"; code=$?; set -e
+set +e; out="$(LMFLUID_MAX_MEMORY_MB=64 "$HOST" --lmcode "$WORK/fembudget.dslb" 2>/dev/null)"; code=$?; set -e
 [ "$code" = 3 ] && echo "$out" | grep -q "memory budget exceeded" || fail "FEM solve over LMFLUID_MAX_MEMORY_MB=64: exit $code ($out)"
-set +e; LMFLUID_MAX_MEMORY_MB=-5 "$HOST" --dsl "$WORK/runaway.dslb" >/dev/null 2>"$WORK/badenv.err"; code=$?; set -e
+set +e; LMFLUID_MAX_MEMORY_MB=-5 "$HOST" --lmcode "$WORK/runaway.dslb" >/dev/null 2>"$WORK/badenv.err"; code=$?; set -e
 [ "$code" = 2 ] && grep -q "positive whole number" "$WORK/badenv.err" || fail "bad LMFLUID_MAX_MEMORY_MB: exit $code"
 if [ "$UNAME_S" = Linux ]; then
-  set +e; out="$(ulimit -v 6291456; "$HOST" --dsl "$WORK/runaway.dslb" 2>/dev/null)"; code=$?; set -e
+  set +e; out="$(ulimit -v 6291456; "$HOST" --lmcode "$WORK/runaway.dslb" 2>/dev/null)"; code=$?; set -e
   [ "$code" = 3 ] && echo "$out" | grep -q "limit 4096 MiB" || fail "runaway loop with the default budget under ulimit -v 6 GiB: exit $code ($out)"
   ok "memory budget: runaway LBM loop and FEM solve stop at 64 MiB, the loop also at the default 4096 MiB (under ulimit -v 6 GiB)"
 else
@@ -240,12 +241,12 @@ fi
 
 # Dry run loads/verifies bytecode without executing numerical work or writing CSV.
 rm -f build/examples/poisson.csv
-"$HOST" --dry-run --dsl build/poisson.dslb >"$WORK/dry.out" || fail "dry run"
+"$HOST" --dry-run --lmcode build/poisson.dslb >"$WORK/dry.out" || fail "dry run"
 [ ! -e build/examples/poisson.csv ] || fail "dry run created CSV"
-"$HOST" --dsl build/poisson.dslb >/dev/null || fail "restore example CSV"
+"$HOST" --lmcode build/poisson.dslb >/dev/null || fail "restore example CSV"
 ok "dry run verifies without writing outputs"
 
-for flags in '--unknown' '--version extra' '--dsl-schema --bogus' '--dry-run' '--dsl --bogus'; do
+for flags in '--unknown' '--version extra' '--lmcode-schema --bogus' '--dry-run' '--lmcode --bogus'; do
   set +e
   # Deliberate word splitting: each fixed test string is a CLI argument sequence.
   # shellcheck disable=SC2086
@@ -256,7 +257,7 @@ for flags in '--unknown' '--version extra' '--dsl-schema --bogus' '--dry-run' '-
 done
 ok "invalid CLI combinations use exit 2"
 
-set +e; "$HOST" --dsl "$WORK/does-not-exist.dslb" >/dev/null 2>&1; code=$?; set -e
+set +e; "$HOST" --lmcode "$WORK/does-not-exist.dslb" >/dev/null 2>&1; code=$?; set -e
 [ "$code" = 3 ] || fail "missing bytecode exit code $code, expected 3"
 set +e; "$HOST" >/dev/null 2>&1; code=$?; set -e
 [ "$code" = 2 ] || fail "usage exit code $code, expected 2"

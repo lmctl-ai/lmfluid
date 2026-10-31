@@ -23,7 +23,7 @@ fluid.assert_close(flow.velocity(24, 6, 1), 0.0, 0.000001);
 flow.sample().save_csv("build/examples/channel.csv");
 end _lmcode_
 savedsl(p, "build/channel.dslb");
-r = system ${dsl_cli(p)} --dsl build/channel.dslb;
+r = system ${dsl_cli(p)} --lmcode build/channel.dslb;
 if (r.code != 0) { println(r.stdout); println(r.stderr); }
 assert(r.code == 0);
 
@@ -138,7 +138,7 @@ scene.text(74.0, 553.0, 13.5, "exact solution", "#1d2733");
 scene.render_png("build/rendered/channel.png", 960, 580, 1);
 end _lmcode_
 savedsl(d, "build/visual/channel-draw.dslb");
-r = system ${dsl_cli(d)} --dsl build/visual/channel-draw.dslb;
+r = system ${dsl_cli(d)} --lmcode build/visual/channel-draw.dslb;
 if (r.code != 0) { println(r.stdout); println(r.stderr); }
 assert(r.code == 0);
 copy_file("build/rendered/channel.png", "images/channel.png");

@@ -27,7 +27,7 @@ fluid.assert_close(c.velocity(32, 32, 0), before, 0.000001);
 fluid.assert_true(c.mach() < 0.3);
 end _lmcode_
 savedsl(p, "build/cavity_ghia.dslb");
-r = system ${dsl_cli(p)} --dsl build/cavity_ghia.dslb;
+r = system ${dsl_cli(p)} --lmcode build/cavity_ghia.dslb;
 if (r.code != 0) { println(r.stdout); println(r.stderr); }
 assert(r.code == 0);
 
@@ -91,7 +91,7 @@ plot.cmd("unset multiplot");
 plot.close();
 end _lmcode_
 savedsl(v, "build/visual/cavity_ghia.dslb");
-r = system ${dsl_cli(v)} --dsl build/visual/cavity_ghia.dslb;
+r = system ${dsl_cli(v)} --lmcode build/visual/cavity_ghia.dslb;
 if (r.code != 0) { println(r.stdout); println(r.stderr); }
 assert(r.code == 0);
 println("wrote images/cavity_ghia.png");

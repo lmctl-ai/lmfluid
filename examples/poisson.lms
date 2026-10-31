@@ -6,7 +6,7 @@ fluid.assert_close(field.l2_error("x*x + y*y"), 0.0, 0.005);
 field.sample(41, 41).save_csv("build/examples/poisson.csv");
 end _lmcode_
 savedsl(p, "build/poisson.dslb");
-r = system ${dsl_cli(p)} --dsl build/poisson.dslb;
+r = system ${dsl_cli(p)} --lmcode build/poisson.dslb;
 assert(r.code == 0);
 
 mkdir("build/visual");
@@ -37,7 +37,7 @@ plot.cmd("plot 'build/examples/poisson.csv' using 1:2:4 with image");
 plot.close();
 end _lmcode_
 savedsl(v,"build/visual/poisson.dslb");
-r = system ${dsl_cli(v)} --dsl build/visual/poisson.dslb;
+r = system ${dsl_cli(v)} --lmcode build/visual/poisson.dslb;
 if (r.code!=0) { println(r.stdout); println(r.stderr); }
 assert(r.code==0);
 
