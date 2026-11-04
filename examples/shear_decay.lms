@@ -2,13 +2,12 @@ mkdir("build/examples");
 p = _lmcode_ cli="lmfluid" install="github:lmctl-ai/lmfluid@latest";
 let v=fluid.periodic(32,32,0.1).init("0.03*sin(2*pi*y/32)","0").run(400);fluid.assert_close(v.velocity(0,8,0),fluid.eval("0.03*exp(-0.1*(2*pi/32)^2*400)*sin(2*pi*8.5/32)"),0.0002);v.sample().save_csv("build/examples/shear_decay.csv");
 end _lmcode_
-savedsl(p, "build/shear_decay.dslb");
-r = system ${dsl_cli(p)} --lmcode build/shear_decay.dslb;
-assert(r.code == 0);
+r = run_lmcode(p);
+assert(r.ok);
 
 mkdir("build/visual");
 mkdir("images");
-v = _lmcode_ cli="lmplot" install="github:lmctl-ai/lmplot@latest";
+v = _lmcode_ cli="lmplot";
 plot.png("images/shear_decay.png",900,520);
 plot.cmd("set datafile separator ','");
 plot.cmd("set border 3");
@@ -27,9 +26,8 @@ plot.cmd("set ylabel 'Streamwise velocity (lattice units)'");
 plot.cmd("plot 0.03*sin(2*pi*x/32) with lines ls 3 dt 2 title 'Initial', 'build/examples/shear_decay.csv' using ($1==0.5?$2:1/0):4 with points pt 7 ps 0.8 lc rgb '#007f86' title 'D2Q9 at step 400', 0.03*exp(-0.1*(2*pi/32)**2*400)*sin(2*pi*x/32) with lines ls 2 title 'Exact decay'");
 plot.close();
 end _lmcode_
-savedsl(v,"build/visual/shear_decay.dslb");
-r = system ${dsl_cli(v)} --lmcode build/visual/shear_decay.dslb;
-if (r.code!=0) { println(r.stdout); println(r.stderr); }
-assert(r.code==0);
+r = run_lmcode(v);
+if (!r.ok) { println(json_stringify(r)); }
+assert(r.ok);
 
 println("wrote images/shear_decay.png");

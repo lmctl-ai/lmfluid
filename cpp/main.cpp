@@ -8,6 +8,7 @@
 #include <cstdio>
 #include <iostream>
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 #ifdef _WIN32
@@ -185,7 +186,7 @@ void register_host(dslvm::Registry &r, Host &h) {
     return Value::real(x);
   });
   check(r, "Fluid", "print", {"string"}, "void", [](void *, Args &a) {
-    std::cout << a[0].s << '\n';
+    std::cerr << a[0].s << '\n';
     return Value::none();
   });
   check(r, "Mesh", "dimension", {}, "int",
@@ -389,7 +390,7 @@ int main(int argc, char **argv) {
       return 0;
     }
     std::cerr << usage;
-    return 2;
+    return dslvm::failure_frame("cli", dslvm::Error("CLI_USAGE", "invalid execution arguments or memory budget"));
   }
   if (argc == 2 && std::string(argv[1]) == "--lmcode-signatures") {
     for (const auto &s : reg.signatures())
@@ -404,60 +405,81 @@ int main(int argc, char **argv) {
   }
   if (argc <= dsl_arg || std::string(argv[dsl_arg]) != "--lmcode") {
     std::cerr << usage;
-    return 2;
+    return dslvm::failure_frame("cli", dslvm::Error("CLI_USAGE", "invalid execution arguments or memory budget"));
   }
   std::vector<std::string> files;
   for (int i = dsl_arg + 1; i < argc; i++) {
     if (std::string(argv[i]) == "--dry-run") {
       if (dry) {
         std::cerr << usage;
-        return 2;
+        return dslvm::failure_frame("cli", dslvm::Error("CLI_USAGE", "invalid execution arguments or memory budget"));
       }
       dry = true;
     } else if (std::string(argv[i]).empty() ||
                std::string(argv[i]).rfind("--", 0) == 0) {
       std::cerr << usage;
-      return 2;
+      return dslvm::failure_frame("cli", dslvm::Error("CLI_USAGE", "invalid execution arguments or memory budget"));
     } else
       files.push_back(argv[i]);
   }
   if (files.empty()) {
     std::cerr << usage;
-    return 2;
+    return dslvm::failure_frame("cli", dslvm::Error("CLI_USAGE", "invalid execution arguments or memory budget"));
   }
   if (!membudget::configure("lmfluid", "LMFLUID_MAX_MEMORY_MB")) {
     std::cerr << usage;
-    return 2;
+    return dslvm::failure_frame("cli", dslvm::Error("CLI_USAGE", "invalid execution arguments or memory budget"));
   }
-  const std::string schema(
-      reinterpret_cast<const char *>(lmfluid::embedded_schema),
-      lmfluid::embedded_schema_size);
-  dslvm::Context ctx;
+  // Dry mode is invocation-wide: run_lmcode supplies it in LMCODE_INVOCATION_FILE metadata; the
+  // standalone --dry-run flag requests the same mode when no metadata is present.
+  std::optional<dslvm::InvocationResults> holder;
+  try {
+    if (dry && !std::getenv("LMCODE_INVOCATION_FILE")) holder.emplace(dslvm::InvocationResults::from_command(files, true));
+    else holder.emplace(dslvm::InvocationResults::from_command(files));
+  } catch (const dslvm::Error &e) {
+    return dslvm::failure_frame("cli", e);
+  }
+  auto &results = *holder;
+  if (dry && !results.dry()) {
+    return dslvm::failure_frame("cli", dslvm::Error("CLI_USAGE", "--dry-run contradicts real-mode invocation metadata"));
+  }
+  const std::string schema(reinterpret_cast<const char *>(lmfluid::embedded_schema), lmfluid::embedded_schema_size);
+  dslvm::Context context;
   Fluid fluid;
-  ctx.set("fluid", &fluid);
-  std::vector<dslvm::Program> programs;
-  for (const auto &file : files)
-    try {
-      programs.push_back(
-          dslvm::Program::load(dslvm::read_file(file), schema, reg));
-    } catch (const dslvm::Error &e) {
-      return dslvm::report_error("load", e);
-    } catch (const std::exception &e) {
-      return dslvm::report_error("load", dslvm::Error(e.what()));
-    }
-  if (dry) {
-    dslvm::report_ok();
-    return 0;
+  context.set("fluid", &fluid);
+  // A program that exhausted the memory budget still needs a failure frame, and the simulation it
+  // built stays allocated: this reserve is released first, so recording the failure cannot throw.
+  std::unique_ptr<char[]> reserve;
+  try { reserve = std::make_unique<char[]>(1 << 20); }
+  catch (const std::exception &e) { results.fail(std::nullopt, "run", dslvm::Error(e.what())); return results.write_frame(std::cout); }
+  dslvm::ResultContract contract;
+  // Load and verify every file first: a bad later file must not leave earlier output behind.
+  std::vector<std::pair<size_t, dslvm::Program>> programs;
+  try { contract = dslvm::ResultContract::from_schema(schema); }
+  catch (const dslvm::Error &e) { reserve.reset(); results.fail(std::nullopt, "load", e); return results.write_frame(std::cout); }
+  for (const auto &part : results.registrations()) {
+    try { programs.emplace_back(part.index, dslvm::Program::load(dslvm::read_file(part.file), schema, reg)); }
+    catch (const dslvm::Error &e) { reserve.reset(); results.fail(part.index, "load", e); return results.write_frame(std::cout); }
+    catch (const std::exception &e) { reserve.reset(); results.fail(part.index, "load", dslvm::Error(e.what())); return results.write_frame(std::cout); }
   }
-  for (const auto &p : programs) {
+  for (auto &[index, program] : programs) {
     try {
-      p.run(ctx, reg);
+      results.select(index, reg, contract);
+      // A dry invocation validates and loads every program but runs none: programs write CSV and
+      // other files, and a simulation has no effect-free mode.
+      if (!results.dry()) program.run(context, reg);
+      results.complete(index);
     } catch (const dslvm::Error &e) {
-      return dslvm::report_error("run", e);
-    } catch (const std::exception &e) { // memory budget inside the VM
-      return dslvm::report_error("run", dslvm::Error(e.what()));
+      reserve.reset();
+      std::cerr << e.what() << "\n";
+      results.fail(index, e.code == "APP_FAIL" ? "app" : "run", e);
+      break;
+    } catch (const std::exception &e) {  // the memory budget inside the VM
+      reserve.reset();
+      std::cerr << e.what() << "\n";
+      results.fail(index, "run", dslvm::Error(e.what()));
+      break;
     }
-    dslvm::report_ok();
   }
-  return 0;
+  return results.write_frame(std::cout);
 }

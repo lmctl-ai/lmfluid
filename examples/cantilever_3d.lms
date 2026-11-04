@@ -25,9 +25,8 @@ for (j in range(0, 5)) {
 t.save_csv("build/examples/cantilever_3d.csv");
 fluid.assert_close(t.get(4 * 41 + 40, 3), -0.756, 0.002);
 end _lmcode_
-savedsl(p, "build/cantilever_3d.dslb");
-r = system ${dsl_cli(p)} --lmcode build/cantilever_3d.dslb;
-assert(r.code == 0);
+r = run_lmcode(p);
+assert(r.ok);
 
 # keyframe rows (the CSV format lmcad reads): t = node index, x/y = deformed position,
 # z unused, r/g/b = stress colour on a blue-white-red scale saturating at |sigma| = 3
@@ -46,7 +45,7 @@ for (k in range(0, len(rows))) {
 }
 write_file("build/examples/cantilever_3d-nodes.csv", keys);
 
-c = _lmcode_ cli="lmcad" install="github:lmctl-ai/lmcad@latest";
+c = _lmcode_ cli="lmcad";
 scene.background(1.0, 1.0, 1.0);
 scene.supersample(3);
 scene.ambient(0.55);
@@ -81,10 +80,9 @@ scene.tube_between(10.0, 1.0, 0.0, 10.0, 1.0, depth, 0.025, ghost);
 scene.camera(19.0, 8.0, 3.4, 22.0, 4.9, -0.45, 0.8);
 scene.render_png("build/visual/cantilever_3d-render.png", 900, 470);
 end _lmcode_
-savedsl(c, "build/visual/cantilever_3d-cad.dslb");
-r = system ${dsl_cli(c)} --lmcode build/visual/cantilever_3d-cad.dslb;
-if (r.code != 0) { println(r.stdout); println(r.stderr); }
-assert(r.code == 0);
+r = run_lmcode(c);
+if (!r.ok) { println(json_stringify(r)); }
+assert(r.ok);
 
 # embed the render in an annotated card (base64 of the PNG as a data URI)
 fn png_uri(path) {
@@ -100,7 +98,7 @@ uri = png_uri("build/visual/cantilever_3d-render.png");
 tip_txt = "tip deflection " + sprintf("%.3f", 0.0 - num(rows[4 * 41 + 40][3])) + " (drawn 3x)";
 mkdir("images");
 mkdir("build/rendered");
-d = _lmcode_ cli="lmdraw" install="github:lmctl-ai/lmdraw@latest";
+d = _lmcode_ cli="lmdraw";
 scene.canvas(900, 560, "#ffffff");
 scene.image(${uri}, 0.0, 84.0, 900.0, 470.0);
 scene.text(30.0, 40.0, 22.0, "Where a cantilever is stretched and squeezed", "#1d2733").set_attr("font-weight", "700");
@@ -119,9 +117,8 @@ scene.text(30.0, 512.0, 13.5, ${tip_txt}, "#1d2733");
 scene.text(30.0, 532.0, 13.5, "grey rods: the unloaded beam", "#5a6672");
 scene.render_png("build/rendered/cantilever_3d.png", 900, 560, 1);
 end _lmcode_
-savedsl(d, "build/visual/cantilever_3d-draw.dslb");
-r = system ${dsl_cli(d)} --lmcode build/visual/cantilever_3d-draw.dslb;
-if (r.code != 0) { println(r.stdout); println(r.stderr); }
-assert(r.code == 0);
+r = run_lmcode(d);
+if (!r.ok) { println(json_stringify(r)); }
+assert(r.ok);
 copy_file("build/rendered/cantilever_3d.png", "images/cantilever_3d.png");
 println("wrote images/cantilever_3d.png");

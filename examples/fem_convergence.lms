@@ -24,10 +24,9 @@ for (order in range(1, 4)) {
   t.save_csv("build/examples/fem_convergence-p" + str(order) + ".csv");
 }
 end _lmcode_
-savedsl(p, "build/fem_convergence.dslb");
-r = system ${dsl_cli(p)} --lmcode build/fem_convergence.dslb;
-if (r.code != 0) { println(r.stdout); println(r.stderr); }
-assert(r.code == 0);
+r = run_lmcode(p);
+if (!r.ok) { println(json_stringify(r)); }
+assert(r.ok);
 
 # observed convergence orders from the two finest meshes, for the legend
 fn rate(o) {
@@ -48,7 +47,7 @@ r3 = rate(3);
 
 mkdir("build/visual");
 mkdir("images");
-v = _lmcode_ cli="lmplot" install="github:lmctl-ai/lmplot@latest";
+v = _lmcode_ cli="lmplot";
 plot.png("images/fem_convergence.png", 960, 480);
 plot.cmd("set datafile separator ','");
 plot.cmd("set multiplot layout 1,2 title 'Higher-order elements converge faster: -Δu = 2π² sin(πx) sin(πy) on the unit square' font ',14'");
@@ -79,8 +78,7 @@ plot.cmd("plot 'build/examples/fem_convergence-p1.csv' using 2:3 with linespoint
 plot.cmd("unset multiplot");
 plot.close();
 end _lmcode_
-savedsl(v, "build/visual/fem_convergence.dslb");
-r = system ${dsl_cli(v)} --lmcode build/visual/fem_convergence.dslb;
-if (r.code != 0) { println(r.stdout); println(r.stderr); }
-assert(r.code == 0);
+r = run_lmcode(v);
+if (!r.ok) { println(json_stringify(r)); }
+assert(r.ok);
 println("wrote images/fem_convergence.png");

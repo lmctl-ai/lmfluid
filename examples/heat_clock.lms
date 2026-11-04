@@ -13,9 +13,8 @@ for (i in range(0, 24)) {
   f.sample(31, 31).save_csv("build/examples/heat_clock-" + str(i) + ".csv");
 }
 end _lmcode_
-savedsl(p, "build/heat_clock.dslb");
-r = system ${dsl_cli(p)} --lmcode build/heat_clock.dslb;
-assert(r.code == 0);
+r = run_lmcode(p);
+assert(r.ok);
 
 # centre temperature of every snapshot, for the decay curve
 decay = "";
@@ -27,7 +26,7 @@ write_file("build/examples/heat_clock-decay.csv", decay);
 
 mkdir("build/visual");
 mkdir("images");
-v = _lmcode_ cli="lmplot" install="github:lmctl-ai/lmplot@latest";
+v = _lmcode_ cli="lmplot";
 # frame k shows the plate at t = 0.004 k next to the centre temperature so far
 for (k in range(0, 25)) {
   let f = min(k, 23);
@@ -83,10 +82,9 @@ for (k in range(0, 25)) {
   plot.close();
 }
 end _lmcode_
-savedsl(v, "build/visual/heat_clock.dslb");
-r = system ${dsl_cli(v)} --lmcode build/visual/heat_clock.dslb;
-if (r.code != 0) { println(r.stdout); println(r.stderr); }
-assert(r.code == 0);
+r = run_lmcode(v);
+if (!r.ok) { println(json_stringify(r)); }
+assert(r.ok);
 println("wrote images/heat_clock.png");
 
 fn has_cmd(name) {

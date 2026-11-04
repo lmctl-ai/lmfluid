@@ -22,9 +22,8 @@ t.save_csv("build/examples/cantilever_beam.csv");
 fluid.assert_close(t.get(10, 2), 1.6875, 0.01);
 fluid.assert_close(t.get(40, 3), -0.1, 0.001);
 end _lmcode_
-savedsl(p, "build/cantilever_beam.dslb");
-r = system ${dsl_cli(p)} --lmcode build/cantilever_beam.dslb;
-assert(r.code == 0);
+r = run_lmcode(p);
+assert(r.ok);
 
 rows = csv_parse(read_file("build/examples/cantilever_beam.csv"), false);
 q = 0.01;
@@ -67,7 +66,7 @@ root_eb = sprintf("%.3f", sig(0.5));
 
 mkdir("images");
 mkdir("build/rendered");
-d = _lmcode_ cli="lmdraw" install="github:lmctl-ai/lmdraw@latest";
+d = _lmcode_ cli="lmdraw";
 scene.canvas(960, 660, "#ffffff");
 scene.text(36.0, 44.0, 23.0, "A cantilever sags exactly as beam theory predicts", "#1d2733").set_attr("font-weight", "700");
 scene.text(36.0, 70.0, 14.5, "2D finite elements (P2, 80 x 8 cells) for a clamped strip under uniform load, against Euler-Bernoulli", "#5a6672");
@@ -112,9 +111,8 @@ scene.text(766.0, 550.0, 20.0, ${root_txt}, "#007f86").set_attr("font-weight", "
 scene.text(766.0, 574.0, 12.5, "beam theory " + ${root_eb}, "#1d2733");
 scene.render_png("build/rendered/cantilever_beam.png", 960, 660, 1);
 end _lmcode_
-savedsl(d, "build/cantilever_beam-draw.dslb");
-r = system ${dsl_cli(d)} --lmcode build/cantilever_beam-draw.dslb;
-if (r.code != 0) { println(r.stdout); println(r.stderr); }
-assert(r.code == 0);
+r = run_lmcode(d);
+if (!r.ok) { println(json_stringify(r)); }
+assert(r.ok);
 copy_file("build/rendered/cantilever_beam.png", "images/cantilever_beam.png");
 println("wrote images/cantilever_beam.png");

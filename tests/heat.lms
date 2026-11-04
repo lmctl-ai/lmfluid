@@ -7,4 +7,5 @@ let expected = 0.8208687174155399;
 fluid.assert_close(field.value(0.5, 0.5), expected, 0.003);
 fluid.assert_close(field.time(), 0.01, 0.000001);
 end _lmcode_
-savedsl(p, "build/heat.dslb");
+r = run_lmcode(p);
+require(r.ok, json_stringify(r));

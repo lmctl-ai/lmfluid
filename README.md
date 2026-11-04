@@ -73,7 +73,7 @@ The first run downloads the released lmfluid and lmdraw binaries for your platfo
 
 ![How an example runs: script, lmscript, lmfluid, CSV, drawing hosts](docs/images/quickstart.png)
 
-Each script binds its hosts with `_dsl_ cli="..." install="github:lmctl-ai/...@latest"` blocks, so nothing needs to be on PATH. Installing `@latest` asks the GitHub API for the release; without a token GitHub allows 60 such requests an hour from one address, so set `GITHUB_TOKEN` (for example `export GITHUB_TOKEN=$(gh auth token)`) before running many examples. Animated examples also write a GIF when `ffmpeg` is on PATH; otherwise they leave the frames in `build/visual/`.
+Each script binds lmfluid with `_lmcode_ cli="lmfluid" install="github:lmctl-ai/lmfluid@latest"`. Compatible renderer binaries must already be on PATH. Installing `@latest` asks the GitHub API for the release; without a token GitHub allows 60 such requests an hour from one address, so set `GITHUB_TOKEN` (for example `export GITHUB_TOKEN=$(gh auth token)`) before running many examples. Animated examples also write a GIF when `ffmpeg` is on PATH; otherwise they leave the frames in `build/visual/`.
 
 The program in the picture, written out:
 
@@ -83,14 +83,13 @@ let field = fluid.poisson(fluid.rect(12, 12, 1.0, 1.0), 2).source("-4").dirichle
 fluid.assert_close(field.value(0.5, 0.5), 0.5, 0.000001);
 field.sample(41, 41).save_csv("poisson.csv");
 end _lmcode_
-savedsl(p, "poisson.dslb");
-r = system ${dsl_cli(p)} --lmcode poisson.dslb;
-assert(r.code == 0);
+r = run_lmcode(p);
+assert(r.ok);
 ```
 
 ## API
 
-The host CLI accepts only `--lmcode FILE...`, `--dry-run --lmcode FILE...`, `--version`, `--notices`, `--lmcode-schema [--json]` and `--lmcode-signatures`. Dry run validates bytecode without solving or writing files. Usage errors exit 2; load and run errors exit 3. Warnings (see the LBM limits) go to stderr; stdout carries only the JSON result line.
+The host CLI accepts only `--lmcode FILE...`, `--dry-run --lmcode FILE...`, `--version`, `--notices`, `--lmcode-schema [--json]` and `--lmcode-signatures`. Dry run validates bytecode without solving or writing files. Usage errors exit 2; load and run errors exit 3. Warnings (see the LBM limits) go to stderr; stdout carries only the terminal SDK frame.
 
 | API | Purpose |
 | --- | --- |
@@ -143,7 +142,7 @@ cmake --build build --parallel 4
 examples/render-all.sh   # regenerate docs/images (and the GIFs when ffmpeg is present)
 ```
 
-Requires CMake 3.24+, C++17, git, Python 3 and lmscript for testing (`npm i -g @lmctl-ai/lmctl@0.2.420`). MFEM is built statically with exceptions and no MPI, METIS, OpenMP, GPU, LAPACK, zlib or other external numerical libraries. Linux binaries dynamically link glibc (>= 2.35) and statically link MFEM, libstdc++ and libgcc; macOS links only system libraries; Windows statically links MinGW runtimes.
+Requires CMake 3.24+, C++17, git, Python 3 and lmscript for testing (`npm i -g @lmctl-ai/lmctl@0.2.460`). MFEM is built statically with exceptions and no MPI, METIS, OpenMP, GPU, LAPACK, zlib or other external numerical libraries. Linux binaries dynamically link glibc (>= 2.35) and statically link MFEM, libstdc++ and libgcc; macOS links only system libraries; Windows statically links MinGW runtimes.
 
 `test.sh` checks manufactured solutions, P1/P2/P3 convergence orders, heat eigenmode decay, the elasticity patch test, cantilever deflection, slope and stress against beam theory, 3D Poisson and mesh round trips, periodic mass and momentum, shear-wave decay, the Poiseuille profile, obstacle walls against domain walls, the momentum balance on obstacles, Ghia's Re = 100 cavity, deterministic reruns, schema and signature parity, notices and platform linkage (dynamic glibc >= 2.35 allowlist on Linux, static MFEM everywhere), 25 error cases and the stability warnings. It runs every example (each asserts its own known answer) and validates the gallery. See [durable memory](durable-memory/index.md) for measurements and scope.
 
@@ -157,3 +156,9 @@ the limit, instead of exhausting the machine. Set `LMFLUID_MAX_MEMORY_MB` to cha
 ## License
 
 Our host, wrappers, examples and D2Q9 implementation are [MIT](LICENSE). MFEM is BSD-3-Clause and is fetched at the commit in `deps.lock` into ignored `third_party/`; its bundled permissive notices are reproduced in [THIRD_PARTY_NOTICES](THIRD_PARTY_NOTICES) and embedded in `--notices`. OpenFOAM and GPL/LGPL scientific libraries are excluded. The drawing hosts (lmplot, lmdraw, lmcad) are separate programs installed at run time under their own licenses.
+
+Host invocations return one SDK-framed result (exit 0 success, 2 CLI/metadata,
+3 load/run, 4 application/output failure). Check `r.ok` after `run_lmcode`.
+Dry mode validates all parts without numerical work or file effects.
+`fluid.print` and solver diagnostics use stderr; numerical data uses CSV files.
+Gallery rendering requires compatible lmplot/lmdraw/lmcad already on PATH.

@@ -25,10 +25,9 @@ for (run_id in range(0, 3)) {
   c.sample().save_csv("build/examples/cavity_vortex-" + str(run_id) + ".csv");
 }
 end _lmcode_
-savedsl(p, "build/cavity_vortex.dslb");
-r = system ${dsl_cli(p)} --lmcode build/cavity_vortex.dslb;
-if (r.code != 0) { println(r.stdout); println(r.stderr); }
-assert(r.code == 0);
+r = run_lmcode(p);
+if (!r.ok) { println(json_stringify(r)); }
+assert(r.ok);
 
 # stream function on cell centres: psi(x, y) = sum of u over the cells below, in units of U L
 n = 64;
@@ -74,7 +73,7 @@ m2 = mark(centre[2]);
 
 mkdir("build/visual");
 mkdir("images");
-v = _lmcode_ cli="lmplot" install="github:lmctl-ai/lmplot@latest";
+v = _lmcode_ cli="lmplot";
 plot.png("images/cavity_vortex.png", 960, 460);
 plot.cmd("set multiplot title 'A faster lid pushes the cavity vortex toward the centre (streamlines, lid moves right)' font ',14'");
 plot.cmd("set view map");
@@ -119,8 +118,7 @@ for (k in range(0, 3)) {
 plot.cmd("unset multiplot");
 plot.close();
 end _lmcode_
-savedsl(v, "build/visual/cavity_vortex.dslb");
-r = system ${dsl_cli(v)} --lmcode build/visual/cavity_vortex.dslb;
-if (r.code != 0) { println(r.stdout); println(r.stderr); }
-assert(r.code == 0);
+r = run_lmcode(v);
+if (!r.ok) { println(json_stringify(r)); }
+assert(r.ok);
 println("wrote images/cavity_vortex.png");

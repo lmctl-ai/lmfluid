@@ -39,10 +39,9 @@ for (k in range(0, 120)) {
 rec.save_csv("build/examples/cylinder_wake-probe.csv");
 fluid.assert_true(f.mach() < 0.3);
 end _lmcode_
-savedsl(p, "build/cylinder_wake.dslb");
-r = system ${dsl_cli(p)} --lmcode build/cylinder_wake.dslb;
-if (r.code != 0) { println(r.stdout); println(r.stderr); }
-assert(r.code == 0);
+r = run_lmcode(p);
+if (!r.ok) { println(json_stringify(r)); }
+assert(r.ok);
 
 # shedding period from upward zero crossings of the probe's cross-flow velocity
 rows = csv_parse(read_file("build/examples/cylinder_wake-probe.csv"), false);
@@ -90,7 +89,7 @@ sub = "shedding period " + sprintf("%.0f", period) + " steps: lift swings once p
 
 mkdir("build/visual");
 mkdir("images");
-v = _lmcode_ cli="lmplot" install="github:lmctl-ai/lmplot@latest";
+v = _lmcode_ cli="lmplot";
 plot.png("images/cylinder_wake.png", 960, 560);
 plot.cmd("set datafile separator ','");
 plot.cmd("set multiplot title " + ${"'" + title + "'"} + " font ',14'");
@@ -154,10 +153,9 @@ for (k in range(0, 20)) {
   plot.close();
 }
 end _lmcode_
-savedsl(v, "build/visual/cylinder_wake.dslb");
-r = system ${dsl_cli(v)} --lmcode build/visual/cylinder_wake.dslb;
-if (r.code != 0) { println(r.stdout); println(r.stderr); }
-assert(r.code == 0);
+r = run_lmcode(v);
+if (!r.ok) { println(json_stringify(r)); }
+assert(r.ok);
 println("wrote images/cylinder_wake.png");
 
 fn has_cmd(name) {

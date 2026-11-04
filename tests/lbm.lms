@@ -9,4 +9,5 @@ fluid.assert_true(channel.mass() > 0.0);
 fluid.assert_true(channel.max_speed() > 0.0);
 fluid.assert_true(channel.sample().rows() == 288);
 end _lmcode_
-savedsl(p, "build/lbm.dslb");
+r = run_lmcode(p);
+require(r.ok, json_stringify(r));

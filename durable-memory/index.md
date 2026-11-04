@@ -1,6 +1,6 @@
 # lmfluid durable memory
 
-`lmfluid` is a static, dependency-free lmscript `_dsl_` host for 2D/3D computational fluid dynamics, Navier-Stokes, lattice Boltzmann (LBM), and particle hydrodynamics.
+`lmfluid` is a static, dependency-free lmscript `_lmcode_` host for 2D/3D computational fluid dynamics, Navier-Stokes, lattice Boltzmann (LBM), and particle hydrodynamics.
 Repository: https://github.com/lmctl-ai/lmfluid.
 
 ## 60-second takeover
@@ -36,13 +36,13 @@ The vendored SDK (VM header `cpp/dslvm.hpp`, catalog headers `cpp/stdlib/*.hpp`,
 scripts/sync-sdk.sh                   # Refetches all pinned SDK files and verifies per-file sha256
 ```
 The pinned VM registers the built-in standard library (string, math, collections, file) on every
-registry by default, so lmscript 0.2.420's implicit std compiles and loads without host declarations.
+registry by default, so lmscript 0.2.460's implicit std compiles and loads without host declarations.
 
 ## Adding an example or function
 
 ### Adding an example
-1. Create `examples/<name>.lms` using `_dsl_ cli="lmfluid" install="github:lmctl-ai/lmfluid@latest"`.
-2. Run script: `build/lmfluid run examples/<name>.lms` or via `lmscript`.
+1. Create `examples/<name>.lms` using `_lmcode_ cli="lmfluid" install="github:lmctl-ai/lmfluid@latest"`.
+2. Run script: `PATH="$PWD/build:$PATH" lmscript examples/<name>.lms`.
 3. Add the example to `./test.sh` test run list.
 4. Save visual output to `docs/images/<name>.png` and update `README.md` demo table with `lmctl autorun` command.
 
@@ -54,3 +54,5 @@ registry by default, so lmscript 0.2.420's implicit std compiles and loads witho
 ## Releases
 
 Releases are triggered automatically on push of a `v*` tag. The release workflow builds across Linux x64/arm64, macOS x64/arm64, and Windows x64, publishing platform binaries with `SHA256SUMS`, `LICENSE`, and `THIRD_PARTY_NOTICES`. See `next-release-version.md` before tagging.
+
+- [11-invocation-envelope.md](11-invocation-envelope.md): framing, dry mode, test migration.

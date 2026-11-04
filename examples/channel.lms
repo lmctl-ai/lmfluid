@@ -22,10 +22,9 @@ fluid.assert_close(flow.velocity(24, 6, 0), 0.0018, 0.00002);
 fluid.assert_close(flow.velocity(24, 6, 1), 0.0, 0.000001);
 flow.sample().save_csv("build/examples/channel.csv");
 end _lmcode_
-savedsl(p, "build/channel.dslb");
-r = system ${dsl_cli(p)} --lmcode build/channel.dslb;
-if (r.code != 0) { println(r.stdout); println(r.stderr); }
-assert(r.code == 0);
+r = run_lmcode(p);
+if (!r.ok) { println(json_stringify(r)); }
+assert(r.ok);
 
 pi = 3.141592653589793;
 g = 0.00001;
@@ -85,7 +84,7 @@ umax_txt = "u_max = gH²/8ν = " + sprintf("%.5f", umax);
 mkdir("images");
 mkdir("build/visual");
 mkdir("build/rendered");
-d = _lmcode_ cli="lmdraw" install="github:lmctl-ai/lmdraw@latest";
+d = _lmcode_ cli="lmdraw";
 scene.canvas(960, 580, "#ffffff");
 scene.text(36.0, 44.0, 23.0, "Poiseuille flow: a body force makes a parabola", "#1d2733").set_attr("font-weight", "700");
 scene.text(36.0, 70.0, 14.5, "D2Q9 lattice Boltzmann between two plates, against the exact steady profile and start-up series", "#5a6672");
@@ -137,9 +136,8 @@ scene.line(52.0, 548.0, 68.0, 548.0, "#df6b38", 3.0);
 scene.text(74.0, 553.0, 13.5, "exact solution", "#1d2733");
 scene.render_png("build/rendered/channel.png", 960, 580, 1);
 end _lmcode_
-savedsl(d, "build/visual/channel-draw.dslb");
-r = system ${dsl_cli(d)} --lmcode build/visual/channel-draw.dslb;
-if (r.code != 0) { println(r.stdout); println(r.stderr); }
-assert(r.code == 0);
+r = run_lmcode(d);
+if (!r.ok) { println(json_stringify(r)); }
+assert(r.ok);
 copy_file("build/rendered/channel.png", "images/channel.png");
 println("wrote images/channel.png");

@@ -6,4 +6,5 @@ fluid.assert_close(field.l2_error("x*x + y*y"), 0.0, 0.000001);
 fluid.assert_close(field.value(0.5, 0.5), 0.5, 0.000001);
 fluid.assert_true(field.dofs() > 0);
 end _lmcode_
-savedsl(p, "build/manufactured_poisson.dslb");
+r = run_lmcode(p);
+require(r.ok, json_stringify(r));

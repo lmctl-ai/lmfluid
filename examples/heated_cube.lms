@@ -33,10 +33,9 @@ for (k in range(0, n)) {
 }
 t.save_csv("build/examples/heated_cube.csv");
 end _lmcode_
-savedsl(p, "build/heated_cube.dslb");
-r = system ${dsl_cli(p)} --lmcode build/heated_cube.dslb;
-if (r.code != 0) { println(r.stdout); println(r.stderr); }
-assert(r.code == 0);
+r = run_lmcode(p);
+if (!r.ok) { println(json_stringify(r)); }
+assert(r.ok);
 
 # Keep only voxels a viewer can see: outside the cut-away octant (all indices >= 6) and
 # touching either the cube surface or the cut. Colour: navy -> teal -> pale yellow.
@@ -69,7 +68,7 @@ write_file("build/examples/heated_cube-voxels.csv", keys);
 probe = csv_parse(read_file("build/examples/heated_cube-probe.csv"), false);
 core = num(probe[0][0]);
 
-c = _lmcode_ cli="lmcad" install="github:lmctl-ai/lmcad@latest";
+c = _lmcode_ cli="lmcad";
 scene.background(1.0, 1.0, 1.0);
 scene.supersample(2);
 scene.ambient(0.55);
@@ -84,10 +83,9 @@ for (q in range(0, v.len())) {
 scene.camera(27.0, 2.6, 2.1, 2.9, 0.47, 0.44, 0.47);
 scene.render_png("build/visual/heated_cube-render.png", 620, 480);
 end _lmcode_
-savedsl(c, "build/visual/heated_cube-cad.dslb");
-r = system ${dsl_cli(c)} --lmcode build/visual/heated_cube-cad.dslb;
-if (r.code != 0) { println(r.stdout); println(r.stderr); }
-assert(r.code == 0);
+r = run_lmcode(c);
+if (!r.ok) { println(json_stringify(r)); }
+assert(r.ok);
 
 fn png_uri(path) {
   # "-i FILE" encodes FILE with both GNU coreutils (-i is ignored when encoding) and macOS
@@ -103,7 +101,7 @@ core_txt = sprintf("%.5f", core);
 half_txt = sprintf("%.5f", num(probe[0][1]));
 mkdir("images");
 mkdir("build/rendered");
-d = _lmcode_ cli="lmdraw" install="github:lmctl-ai/lmdraw@latest";
+d = _lmcode_ cli="lmdraw";
 scene.canvas(940, 560, "#ffffff");
 scene.image(${uri}, 10.0, 78.0, 620.0, 480.0);
 scene.text(30.0, 40.0, 22.0, "A self-heating block is hottest in its core", "#1d2733").set_attr("font-weight", "700");
@@ -127,9 +125,8 @@ scene.text(666.0, 506.0, 12.5, "half-way to a face " + ${half_txt}, "#1d2733");
 scene.text(666.0, 524.0, 12.5, "-ΔT = 1 in a unit cube, T = 0 on faces", "#5a6672");
 scene.render_png("build/rendered/heated_cube.png", 940, 560, 1);
 end _lmcode_
-savedsl(d, "build/visual/heated_cube-draw.dslb");
-r = system ${dsl_cli(d)} --lmcode build/visual/heated_cube-draw.dslb;
-if (r.code != 0) { println(r.stdout); println(r.stderr); }
-assert(r.code == 0);
+r = run_lmcode(d);
+if (!r.ok) { println(json_stringify(r)); }
+assert(r.ok);
 copy_file("build/rendered/heated_cube.png", "images/heated_cube.png");
 println("wrote images/heated_cube.png");

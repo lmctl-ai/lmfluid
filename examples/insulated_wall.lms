@@ -36,9 +36,8 @@ for (j in range(0, 11)) {
 }
 sweep.save_csv("build/examples/insulated_wall-sweep.csv");
 end _lmcode_
-savedsl(p, "build/insulated_wall.dslb");
-r = system ${dsl_cli(p)} --lmcode build/insulated_wall.dslb;
-assert(r.code == 0);
+r = run_lmcode(p);
+assert(r.ok);
 
 prof = csv_parse(read_file("build/examples/insulated_wall-profile.csv"), false);
 sweep = csv_parse(read_file("build/examples/insulated_wall-sweep.csv"), false);
@@ -77,7 +76,7 @@ t2_txt = sprintf("%.1f", t2) + " °C";
 
 mkdir("images");
 mkdir("build/rendered");
-d = _lmcode_ cli="lmdraw" install="github:lmctl-ai/lmdraw@latest";
+d = _lmcode_ cli="lmdraw";
 scene.canvas(960, 600, "#ffffff");
 scene.text(36.0, 44.0, 23.0, ${title_txt}, "#1d2733").set_attr("font-weight", "700");
 scene.text(36.0, 70.0, 14.5, "Steady conduction through brick, mineral wool and plaster: finite elements against resistances in series", "#5a6672");
@@ -118,9 +117,8 @@ scene.line(737.0, 256.0, 753.0, 256.0, "#df6b38", 3.0);
 scene.text(758.0, 261.0, 13.0, "1 / sum(t / k)", "#1d2733");
 scene.render_png("build/rendered/insulated_wall.png", 960, 600, 1);
 end _lmcode_
-savedsl(d, "build/insulated_wall-draw.dslb");
-r = system ${dsl_cli(d)} --lmcode build/insulated_wall-draw.dslb;
-if (r.code != 0) { println(r.stdout); println(r.stderr); }
-assert(r.code == 0);
+r = run_lmcode(d);
+if (!r.ok) { println(json_stringify(r)); }
+assert(r.ok);
 copy_file("build/rendered/insulated_wall.png", "images/insulated_wall.png");
 println("wrote images/insulated_wall.png");

@@ -1,5 +1,5 @@
 # One-minute quick start, drawn as the pipeline it runs through.
-# lmscript compiles each _dsl_ block to bytecode for a host: lmfluid solves a Poisson
+# lmscript compiles each _lmcode_ block to bytecode for a host: lmfluid solves a Poisson
 # problem whose exact answer is u = x^2 + y^2, writes CSV, and lmdraw draws how the
 # pieces fit together, annotated with the number the solver just returned.
 # Writes images/quickstart.png.
@@ -14,10 +14,9 @@ out.set(0, 1, float(field.dofs()));
 out.save_csv("build/examples/quickstart.csv");
 field.sample(41, 41).save_csv("build/examples/quickstart-field.csv");
 end _lmcode_
-savedsl(p, "build/quickstart.dslb");
-r = system ${dsl_cli(p)} --lmcode build/quickstart.dslb;
-if (r.code != 0) { println(r.stdout); println(r.stderr); }
-assert(r.code == 0);
+r = run_lmcode(p);
+if (!r.ok) { println(json_stringify(r)); }
+assert(r.ok);
 row = csv_parse(read_file("build/examples/quickstart.csv"), false)[0];
 val_txt = "u(0.5, 0.5) = " + sprintf("%.6f", num(row[0])) + "   (exact 0.5)";
 dof_txt = sprintf("%.0f", num(row[1])) + " unknowns, P2 elements";
@@ -25,10 +24,10 @@ dof_txt = sprintf("%.0f", num(row[1])) + " unknowns, P2 elements";
 mkdir("images");
 mkdir("build/visual");
 mkdir("build/rendered");
-d = _lmcode_ cli="lmdraw" install="github:lmctl-ai/lmdraw@latest";
+d = _lmcode_ cli="lmdraw";
 scene.canvas(960, 520, "#ffffff");
 scene.text(36.0, 44.0, 23.0, "How an lmfluid example runs", "#1d2733").set_attr("font-weight", "700");
-scene.text(36.0, 70.0, 14.5, "One script, several hosts: each _dsl_ block becomes bytecode for the program named by cli=", "#5a6672");
+scene.text(36.0, 70.0, 14.5, "One script, several hosts: each _lmcode_ block becomes bytecode for the program named by cli=", "#5a6672");
 # five stages
 let s1 = scene.rect(36.0, 130.0, 160.0, 120.0, "#eef1f5");
 s1.set_attr("stroke", "#5a6672"); s1.set_attr("stroke-width", "2"); s1.set_attr("rx", "10");
@@ -39,7 +38,7 @@ let s2 = scene.rect(232.0, 130.0, 160.0, 120.0, "#ebedf7");
 s2.set_attr("stroke", "#5864a8"); s2.set_attr("stroke-width", "2"); s2.set_attr("rx", "10");
 scene.text(312.0, 164.0, 15.0, "lmscript", "#3a4378").set_attr("text-anchor", "middle");
 scene.text(312.0, 190.0, 12.0, "installs hosts, checks", "#5a6672").set_attr("text-anchor", "middle");
-scene.text(312.0, 210.0, 12.0, "_dsl_ blocks, savedsl", "#5a6672").set_attr("text-anchor", "middle");
+scene.text(312.0, 210.0, 12.0, "_lmcode_ blocks, run_lmcode", "#5a6672").set_attr("text-anchor", "middle");
 let s3 = scene.rect(428.0, 112.0, 190.0, 156.0, "#e3f2f2");
 s3.set_attr("stroke", "#007f86"); s3.set_attr("stroke-width", "2.5"); s3.set_attr("rx", "10");
 scene.text(523.0, 140.0, 16.0, "lmfluid --lmcode", "#00545a").set_attr("text-anchor", "middle").set_attr("font-weight", "700");
@@ -65,13 +64,13 @@ scene.arrow(734.0, 190.0, 766.0, 190.0, "#5a6672", 2.5);
 # the script this picture came from
 let code = scene.rect(36.0, 310.0, 560.0, 176.0, "#17324d");
 code.set_attr("rx", "8");
-scene.text(54.0, 338.0, 13.0, "p = _dsl_ cli=\"lmfluid\" install=\"github:lmctl-ai/lmfluid@latest\";", "#e8f1f8");
+scene.text(54.0, 338.0, 13.0, "p = _lmcode_ cli=\"lmfluid\" install=\"github:lmctl-ai/lmfluid@latest\";", "#e8f1f8");
 scene.text(54.0, 362.0, 13.0, "let field = fluid.poisson(fluid.rect(12, 12, 1.0, 1.0), 2)", "#e8f1f8");
 scene.text(54.0, 382.0, 13.0, "    .source(\"-4\").dirichlet(0, \"x*x+y*y\").solve();", "#e8f1f8");
 scene.text(54.0, 406.0, 13.0, "fluid.assert_close(field.value(0.5, 0.5), 0.5, 0.000001);", "#e8f1f8");
-scene.text(54.0, 430.0, 13.0, "end _dsl_", "#e8f1f8");
-scene.text(54.0, 454.0, 13.0, "savedsl(p, \"build/quickstart.dslb\");", "#e8f1f8");
-scene.text(54.0, 474.0, 13.0, "r = system $" + "{dsl_cli(p)} --lmcode build/quickstart.dslb;", "#e8f1f8");
+scene.text(54.0, 430.0, 13.0, "end _lmcode_", "#e8f1f8");
+scene.text(54.0, 454.0, 13.0, "r = run_lmcode(p);", "#e8f1f8");
+scene.text(54.0, 474.0, 13.0, "require(r.ok);", "#e8f1f8");
 let res = scene.rect(626.0, 310.0, 304.0, 176.0, "#f5f8fa");
 res.set_attr("stroke", "#d5dde5"); res.set_attr("rx", "8");
 scene.text(644.0, 340.0, 14.0, "This run returned", "#5a6672");
@@ -82,9 +81,8 @@ scene.text(644.0, 450.0, 13.0, "the exact solution is x² + y² itself,", "#5a66
 scene.text(644.0, 470.0, 13.0, "which P2 elements represent exactly.", "#5a6672");
 scene.render_png("build/rendered/quickstart.png", 960, 520, 1);
 end _lmcode_
-savedsl(d, "build/visual/quickstart-draw.dslb");
-r = system ${dsl_cli(d)} --lmcode build/visual/quickstart-draw.dslb;
-if (r.code != 0) { println(r.stdout); println(r.stderr); }
-assert(r.code == 0);
+r = run_lmcode(d);
+if (!r.ok) { println(json_stringify(r)); }
+assert(r.ok);
 copy_file("build/rendered/quickstart.png", "images/quickstart.png");
 println("wrote images/quickstart.png");

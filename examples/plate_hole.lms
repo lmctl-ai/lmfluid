@@ -96,10 +96,9 @@ let kt = line.get(0, 1);
 # Kirsch gives 3 for an infinite plate; Heywood's width correction for d/W = 0.1 gives 3.03
 fluid.assert_true(kt > 2.85 && kt < 3.2);
 end _lmcode_
-savedsl(p, "build/plate_hole.dslb");
-r = system ${dsl_cli(p)} --lmcode build/plate_hole.dslb;
-if (r.code != 0) { println(r.stdout); println(r.stderr); }
-assert(r.code == 0);
+r = run_lmcode(p);
+if (!r.ok) { println(json_stringify(r)); }
+assert(r.ok);
 line = csv_parse(read_file("build/examples/plate_hole-line.csv"), false);
 kt = num(line[0][1]);
 println("stress concentration factor " + sprintf("%.3f", kt));
@@ -107,7 +106,7 @@ title = "A hole triples the stress beside it: K_t = " + sprintf("%.2f", kt) + " 
 
 mkdir("build/visual");
 mkdir("images");
-v = _lmcode_ cli="lmplot" install="github:lmctl-ai/lmplot@latest";
+v = _lmcode_ cli="lmplot";
 plot.png("images/plate_hole.png", 960, 500);
 plot.cmd("set datafile separator ','");
 plot.cmd("set multiplot title " + ${"'" + title + "'"} + " font ',14'");
@@ -147,8 +146,7 @@ plot.cmd("plot 'build/examples/plate_hole-line.csv' using 1:2 every 3 with point
 plot.cmd("unset multiplot");
 plot.close();
 end _lmcode_
-savedsl(v, "build/visual/plate_hole.dslb");
-r = system ${dsl_cli(v)} --lmcode build/visual/plate_hole.dslb;
-if (r.code != 0) { println(r.stdout); println(r.stderr); }
-assert(r.code == 0);
+r = run_lmcode(v);
+if (!r.ok) { println(json_stringify(r)); }
+assert(r.ok);
 println("wrote images/plate_hole.png");

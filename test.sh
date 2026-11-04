@@ -30,6 +30,13 @@ if [ ! -f "$BUILD_DIR/CMakeCache.txt" ] && command -v ninja >/dev/null 2>&1; the
 cmake -S . -B "$BUILD_DIR" $GEN -DCMAKE_BUILD_TYPE=Release >/dev/null
 cmake --build "$BUILD_DIR" --parallel "${BUILD_JOBS:-4}" >"$WORK/build.log" 2>&1 || { tail -40 "$WORK/build.log" >&2; fail "build"; }
 ok "build"
+export LMSCRIPT_BIN="$LMSCRIPT"
+export LMFLUID_HOST="$(cd "$BUILD_DIR" && pwd)/$(basename "$HOST")"
+case "$UNAME_S" in MINGW*|MSYS*|CYGWIN*) export LMFLUID_HOST="$(cd "$BUILD_DIR" && pwd -W | tr '\\' '/')/$(basename "$HOST")";; esac
+run_prog() { python3 tests/invocation.py "$@"; }
+capture_prog() { run_prog --capture-only --capture "$WORK/$1.capture" "$WORK/$1.lms" >/dev/null; }
+printf 's = load_schema(cli="lmfluid");\n' >"$WORK/discover.lms"
+"$LMSCRIPT" "$WORK/discover.lms" >/dev/null || fail "host schema discovery"
 python3 tests/check-host-flags.py schema/lmfluid.dsl.json "$HOST" || fail "hard host flag cutover"
 ctest --test-dir "$BUILD_DIR" --output-on-failure || fail "native fluid tests"
 ok "native fluid regression tests"
@@ -80,10 +87,10 @@ fluid.assert_true(file_exists("$WORK/std-file.txt"));
 fluid.assert_true(file_read("$WORK/std-file.txt") == "one\ntwo");
 fluid.assert_true(file_lines("$WORK/std-file.txt").len() == 2);
 end _lmcode_
-savedsl(p, "$WORK/std-lib.dslb");
+
 LMS
-"$LMSCRIPT" "$WORK/std-lib.lms" >"$WORK/std-lib.log" 2>&1 || { cat "$WORK/std-lib.log" >&2; fail "std compile"; }
-[ "$("$HOST" --lmcode "$WORK/std-lib.dslb")" = '{"ok": true, "result": null}' ] || fail "std run did not report the exact success line"
+capture_prog std-lib >"$WORK/std-lib.log" 2>&1 || { cat "$WORK/std-lib.log" >&2; fail "std compile"; }
+[ "$(run_prog "$WORK/std-lib.lms")" = '{"ok":true,"result":null}' ] || fail "std run did not report the exact success line"
 ok "built-in std loads and runs: string, math, collections and file families"
 "$HOST" --notices >"$WORK/notices.txt" || fail "--notices"
 grep -q "MFEM" "$WORK/notices.txt" || fail "--notices missing third-party text"
@@ -120,14 +127,20 @@ for src in tests/*.lms examples/*.lms; do
   name="$(basename "$src" .lms)"
   [ ! -e "$WORK/compiled-$name" ] || fail "duplicate program basename: $name"
   touch "$WORK/compiled-$name"
-  "$LMSCRIPT" "$src" "build/$name.dslb" >"$WORK/$name.log" 2>&1 || { cat "$WORK/$name.log" >&2; fail "$name compile"; }
+  run_prog --capture-only --capture "$WORK/$name.capture" "$src" >"$WORK/$name.log" 2>&1 || { cat "$WORK/$name.log" >&2; fail "$name compile"; }
+  python3 - "$WORK/$name.capture/0.lmcode" schema/lmfluid.dsl.json <<'PYBYTE'
+import hashlib,pathlib,sys
+b=pathlib.Path(sys.argv[1]).read_bytes()
+assert b[:6] == b'DSLB\0\6'
+assert b[6:38] == hashlib.sha256(pathlib.Path(sys.argv[2]).read_bytes()).digest()
+PYBYTE
   n=$((n+1))
 done
 ok "$n programs compile as bytecode v6"
 for src in tests/*.lms examples/*.lms; do
   name="$(basename "$src" .lms)"
-  "$HOST" --lmcode "build/$name.dslb" >"$WORK/$name.out" 2>"$WORK/$name.err" || { cat "$WORK/$name.out" "$WORK/$name.err" >&2; fail "$name run"; }
-  grep -q '"ok": true' "$WORK/$name.out" || { cat "$WORK/$name.out" >&2; fail "$name did not report ok"; }
+  "$HOST" --lmcode "$WORK/$name.capture/0.lmcode" >"$WORK/$name.out" 2>"$WORK/$name.err" || { cat "$WORK/$name.out" "$WORK/$name.err" >&2; fail "$name run"; }
+  grep -q '"ok":true' "$WORK/$name.out" || { cat "$WORK/$name.out" >&2; fail "$name did not report ok"; }
 done
 ok "$n programs run and pass their own assertions"
 
@@ -135,7 +148,7 @@ ok "$n programs run and pass their own assertions"
 for f in build/examples/*.csv; do echo "$(sha "$f") $f"; done >"$WORK/before.txt"
 for src in examples/*.lms; do
   name="$(basename "$src" .lms)"
-  "$HOST" --lmcode "build/$name.dslb" >/dev/null 2>&1 || fail "$name rerun"
+  "$HOST" --lmcode "$WORK/$name.capture/0.lmcode" >/dev/null 2>&1 || fail "$name rerun"
 done
 for f in build/examples/*.csv; do echo "$(sha "$f") $f"; done >"$WORK/after.txt"
 cmp -s "$WORK/before.txt" "$WORK/after.txt" || fail "result files differ on rerun"
@@ -144,13 +157,12 @@ ok "all $(wc -l <"$WORK/after.txt" | tr -d ' ') result files are byte-identical 
 # Error paths: each snippet must fail the run with exit 3 and a message naming the problem.
 expect_error() { # name, snippet, expected message fragment
   cat >"$WORK/$1.lms" <<LMS
-p = _dsl_ cli="lmfluid";
+p = _lmcode_ cli="lmfluid";
 $2
-end _dsl_
-savedsl(p, "$WORK/$1.dslb");
+end _lmcode_
 LMS
-  "$LMSCRIPT" "$WORK/$1.lms" >/dev/null 2>"$WORK/$1.cerr" || { cat "$WORK/$1.cerr" >&2; fail "$1 compile"; }
-  set +e; out="$("$HOST" --lmcode "$WORK/$1.dslb" 2>/dev/null)"; code=$?; set -e
+  run_prog --check "$WORK/$1.lms" >/dev/null 2>"$WORK/$1.cerr" || { cat "$WORK/$1.cerr" >&2; fail "$1 compile"; }
+  set +e; out="$(run_prog --capture "$WORK/$1.capture" "$WORK/$1.lms" 2>/dev/null)"; code=$?; set -e
   [ "$code" = 3 ] || fail "$1: exit code $code, expected 3 ($out)"
   echo "$out" | grep -q "$3" || fail "$1: message lacks '$3': $out"
 }
@@ -176,6 +188,13 @@ printf 'garbage\n' >"$WORK/garbage.mesh"
 expect_error mesh_format "let m = fluid.load_mesh(\"$WORK/garbage.mesh\");" "MFEM mesh v1.0"
 expect_error no_convergence 'let f = fluid.poisson(fluid.rect(16,16,1.0,1.0),1).source("1").tol(0.000000000001, 1).solve();' "did not converge"
 [ "$(printf '%s\n' "$out" | wc -l | tr -d ' ')" = 1 ] || fail "solver diagnostics leaked into the JSON stdout: $out"
+python3 - "$HOST" "$WORK/no_convergence.capture/0.lmcode" <<'PYFRAME'
+import json,subprocess,sys
+r=subprocess.run([sys.argv[1],'--lmcode',sys.argv[2]],capture_output=True,text=True)
+lines=r.stdout.splitlines()
+assert r.returncode==3 and len(lines)==3 and lines[0]=='LMCODE_RETURN_BEGIN' and lines[2]=='LMCODE_RETURN_END',r
+assert json.loads(lines[1])['phase']=='run',r
+PYFRAME
 # Expression strings: deep nesting used to overflow the parser's stack (SIGSEGV).
 deep="$(printf '(%.0s' $(seq 300))1$(printf ')%.0s' $(seq 300))"
 expect_error deep_expression "let x = fluid.eval(\"$deep\");" "nested too deeply"
@@ -190,14 +209,13 @@ ok "errors stop with exit 3 and clear messages (25 cases)"
 # Stability guards: tau near 0.5 and Mach above 0.3 run, but warn on stderr (JSON stays clean).
 expect_warning() { # name, snippet, expected stderr fragment
   cat >"$WORK/$1.lms" <<LMS
-p = _dsl_ cli="lmfluid";
+p = _lmcode_ cli="lmfluid";
 $2
-end _dsl_
-savedsl(p, "$WORK/$1.dslb");
+end _lmcode_
 LMS
-  "$LMSCRIPT" "$WORK/$1.lms" >/dev/null 2>"$WORK/$1.cerr" || { cat "$WORK/$1.cerr" >&2; fail "$1 compile"; }
-  "$HOST" --lmcode "$WORK/$1.dslb" >"$WORK/$1.out" 2>"$WORK/$1.err" || fail "$1: a warning must not fail the run"
-  grep -q '"ok": true' "$WORK/$1.out" || fail "$1: stdout is not the JSON result"
+  run_prog --check "$WORK/$1.lms" >/dev/null 2>"$WORK/$1.cerr" || { cat "$WORK/$1.cerr" >&2; fail "$1 compile"; }
+  run_prog "$WORK/$1.lms" >"$WORK/$1.out" 2>"$WORK/$1.err" || fail "$1: a warning must not fail the run"
+  grep -q '"ok":true' "$WORK/$1.out" || fail "$1: stdout is not the JSON result"
   grep -q "$3" "$WORK/$1.err" || fail "$1: stderr lacks '$3'"
 }
 expect_warning tau_warning 'let f = fluid.periodic(8,8,0.001).run(1);' "close to 0.5"
@@ -209,30 +227,29 @@ ok "LBM stability warnings go to stderr"
 # default 4096 MiB under a 6 GiB address-space limit (ulimit only here, never in the host).
 budget_program() { # name, snippet
   cat >"$WORK/$1.lms" <<LMS
-p = _dsl_ cli="lmfluid";
+p = _lmcode_ cli="lmfluid";
 $2
-end _dsl_
-savedsl(p, "$WORK/$1.dslb");
+end _lmcode_
 LMS
-  "$LMSCRIPT" "$WORK/$1.lms" >/dev/null || fail "$1.lms compile"
+  capture_prog "$1" >/dev/null || fail "$1.lms compile"
 }
 budget_program runaway 'let i = 0;
 while (i < 1000000) {
   let f = fluid.periodic(1000, 1000, 0.1);
   i = i + 1;
 }'
-set +e; out="$(LMFLUID_MAX_MEMORY_MB=64 "$HOST" --lmcode "$WORK/runaway.dslb" 2>"$WORK/runaway.err")"; code=$?; set -e
+set +e; out="$(LMFLUID_MAX_MEMORY_MB=64 "$HOST" --lmcode "$WORK/runaway.capture/0.lmcode" 2>"$WORK/runaway.err")"; code=$?; set -e
 [ "$code" = 3 ] || fail "runaway loop under LMFLUID_MAX_MEMORY_MB=64: exit $code, expected 3 ($out)"
 echo "$out" | grep -q "memory budget exceeded" || fail "runaway loop: JSON lacks the budget message: $out"
 grep -q "LMFLUID_MAX_MEMORY_MB" "$WORK/runaway.err" || fail "runaway loop: no budget message on stderr"
 # The budget also trips inside MFEM (mesh, assembly, sparse matrix): reported, never mfem_error/abort.
 budget_program fembudget 'let f = fluid.poisson(fluid.rect(300, 300, 1.0, 1.0), 3).source("1").solve();'
-set +e; out="$(LMFLUID_MAX_MEMORY_MB=64 "$HOST" --lmcode "$WORK/fembudget.dslb" 2>/dev/null)"; code=$?; set -e
+set +e; out="$(LMFLUID_MAX_MEMORY_MB=64 "$HOST" --lmcode "$WORK/fembudget.capture/0.lmcode" 2>/dev/null)"; code=$?; set -e
 [ "$code" = 3 ] && echo "$out" | grep -q "memory budget exceeded" || fail "FEM solve over LMFLUID_MAX_MEMORY_MB=64: exit $code ($out)"
-set +e; LMFLUID_MAX_MEMORY_MB=-5 "$HOST" --lmcode "$WORK/runaway.dslb" >/dev/null 2>"$WORK/badenv.err"; code=$?; set -e
+set +e; LMFLUID_MAX_MEMORY_MB=-5 "$HOST" --lmcode "$WORK/runaway.capture/0.lmcode" >/dev/null 2>"$WORK/badenv.err"; code=$?; set -e
 [ "$code" = 2 ] && grep -q "positive whole number" "$WORK/badenv.err" || fail "bad LMFLUID_MAX_MEMORY_MB: exit $code"
 if [ "$UNAME_S" = Linux ]; then
-  set +e; out="$(ulimit -v 6291456; "$HOST" --lmcode "$WORK/runaway.dslb" 2>/dev/null)"; code=$?; set -e
+  set +e; out="$(ulimit -v 6291456; "$HOST" --lmcode "$WORK/runaway.capture/0.lmcode" 2>/dev/null)"; code=$?; set -e
   [ "$code" = 3 ] && echo "$out" | grep -q "limit 4096 MiB" || fail "runaway loop with the default budget under ulimit -v 6 GiB: exit $code ($out)"
   ok "memory budget: runaway LBM loop and FEM solve stop at 64 MiB, the loop also at the default 4096 MiB (under ulimit -v 6 GiB)"
 else
@@ -241,9 +258,9 @@ fi
 
 # Dry run loads/verifies bytecode without executing numerical work or writing CSV.
 rm -f build/examples/poisson.csv
-"$HOST" --dry-run --lmcode build/poisson.dslb >"$WORK/dry.out" || fail "dry run"
+"$HOST" --dry-run --lmcode "$WORK/poisson.capture/0.lmcode" >"$WORK/dry.out" || fail "dry run"
 [ ! -e build/examples/poisson.csv ] || fail "dry run created CSV"
-"$HOST" --lmcode build/poisson.dslb >/dev/null || fail "restore example CSV"
+"$HOST" --lmcode "$WORK/poisson.capture/0.lmcode" >/dev/null || fail "restore example CSV"
 ok "dry run verifies without writing outputs"
 
 for flags in '--unknown' '--version extra' '--lmcode-schema --bogus' '--dry-run' '--lmcode --bogus'; do
@@ -257,13 +274,25 @@ for flags in '--unknown' '--version extra' '--lmcode-schema --bogus' '--dry-run'
 done
 ok "invalid CLI combinations use exit 2"
 
-set +e; "$HOST" --lmcode "$WORK/does-not-exist.dslb" >/dev/null 2>&1; code=$?; set -e
+set +e; "$HOST" --lmcode "$WORK/does-not-exist.lmcode" >/dev/null 2>&1; code=$?; set -e
 [ "$code" = 3 ] || fail "missing bytecode exit code $code, expected 3"
 set +e; "$HOST" >/dev/null 2>&1; code=$?; set -e
 [ "$code" = 2 ] || fail "usage exit code $code, expected 2"
 ok "usage and load errors use exit codes 2 and 3"
 
-python3 scripts/check-gallery.py --generated
+python3 tests/example-data.py || fail "offline example calculations"
+ok "offline examples and CSV postprocessing"
+python3 tests/protocol.py "$WORK" || fail "invocation protocol"
+ok "framing, builder order, load-before-effects and dry metadata"
+if lmplot --lmcode-schema --json >/dev/null 2>&1 && lmdraw --lmcode-schema --json >/dev/null 2>&1 && lmcad --lmcode-schema --json >/dev/null 2>&1; then
+  for src in examples/*.lms; do
+    "$LMSCRIPT" "$src" >"$WORK/gallery.log" 2>&1 || { cat "$WORK/gallery.log" >&2; fail "gallery $src"; }
+  done
+  python3 scripts/check-gallery.py --generated
+else
+  echo "SKIP rendering: compatible lmplot/lmdraw/lmcad unavailable"
+  python3 scripts/check-gallery.py
+fi
 ok "gallery links, image signatures, dimensions and byte budgets"
 
 echo "all $pass checks passed"

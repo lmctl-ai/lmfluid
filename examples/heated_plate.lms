@@ -2,13 +2,12 @@ mkdir("build/examples");
 p = _lmcode_ cli="lmfluid" install="github:lmctl-ai/lmfluid@latest";
 let p=fluid.heat(fluid.rect(16,16,1.0,1.0),2).initial("sin(pi*x)*sin(pi*y)+0.3*sin(3*pi*x)*sin(pi*y)");let a=p.evolve(0.0,0.0002);let b=p.evolve(0.02,0.0002);fluid.assert_close(b.value(0.5,0.5),fluid.eval("exp(-2*pi*pi*0.02)-0.3*exp(-10*pi*pi*0.02)"),0.003);a.sample(41,41).save_csv("build/examples/heated_plate_initial.csv");b.sample(41,41).save_csv("build/examples/heated_plate_final.csv");
 end _lmcode_
-savedsl(p, "build/heated_plate.dslb");
-r = system ${dsl_cli(p)} --lmcode build/heated_plate.dslb;
-assert(r.code == 0);
+r = run_lmcode(p);
+assert(r.ok);
 
 mkdir("build/visual");
 mkdir("images");
-v = _lmcode_ cli="lmplot" install="github:lmctl-ai/lmplot@latest";
+v = _lmcode_ cli="lmplot";
 plot.png("images/heated_plate.png",900,520);
 plot.cmd("set datafile separator ','");
 plot.cmd("set border 3");
@@ -26,9 +25,8 @@ plot.cmd("set ylabel 'Temperature (relative)'");
 plot.cmd("plot 'build/examples/heated_plate_initial.csv' using ($2==0.5?$1:1/0):4 with lines ls 2 title 'Initial', 'build/examples/heated_plate_final.csv' using ($2==0.5?$1:1/0):4 with lines ls 1 title 'After t=0.02'");
 plot.close();
 end _lmcode_
-savedsl(v,"build/visual/heated_plate.dslb");
-r = system ${dsl_cli(v)} --lmcode build/visual/heated_plate.dslb;
-if (r.code!=0) { println(r.stdout); println(r.stderr); }
-assert(r.code==0);
+r = run_lmcode(v);
+if (!r.ok) { println(json_stringify(r)); }
+assert(r.ok);
 
 println("wrote images/heated_plate.png");

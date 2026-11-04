@@ -18,4 +18,5 @@ fluid.assert_close(e2c / e2f, 8.0, 0.4);
 fluid.assert_close(e3c / e3f, 16.0, 1.0);
 fluid.assert_true(e1f < 0.002 && e2f < 0.00004 && e3f < 0.0000004);
 end _lmcode_
-savedsl(p, "build/poisson_convergence.dslb");
+r = run_lmcode(p);
+require(r.ok, json_stringify(r));

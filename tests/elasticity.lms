@@ -5,4 +5,5 @@ let field = problem.solve();
 fluid.assert_close(field.l2_error_vector("x", "2.0*y", "0.0"), 0.0, 0.02);
 fluid.assert_true(field.components() >= 2);
 end _lmcode_
-savedsl(p, "build/elasticity.dslb");
+r = run_lmcode(p);
+require(r.ok, json_stringify(r));

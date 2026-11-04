@@ -1,2 +1,3 @@
 # Schema hashes, SDK pins, shell scripts and lock files require exact LF bytes.
 * text=auto eol=lf
+*.lmcode binary

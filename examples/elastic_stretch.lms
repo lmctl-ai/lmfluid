@@ -16,10 +16,9 @@ let e = fluid.matrix(1, 1);
 e.set(0, 0, err);
 e.save_csv("build/examples/elastic_stretch-error.csv");
 end _lmcode_
-savedsl(p, "build/elastic_stretch.dslb");
-r = system ${dsl_cli(p)} --lmcode build/elastic_stretch.dslb;
-if (r.code != 0) { println(r.stdout); println(r.stderr); }
-assert(r.code == 0);
+r = run_lmcode(p);
+if (!r.ok) { println(json_stringify(r)); }
+assert(r.ok);
 
 rows = csv_parse(read_file("build/examples/elastic_stretch.csv"), false);
 err = num(csv_parse(read_file("build/examples/elastic_stretch-error.csv"), false)[0][0]);
@@ -53,7 +52,7 @@ err_txt = "L2 error against the exact affine field: below 1e-" + str(k) + " (rou
 mkdir("images");
 mkdir("build/visual");
 mkdir("build/rendered");
-d = _lmcode_ cli="lmdraw" install="github:lmctl-ai/lmdraw@latest";
+d = _lmcode_ cli="lmdraw";
 scene.canvas(960, 560, "#ffffff");
 scene.text(36.0, 44.0, 23.0, "The patch test: a uniform strain is reproduced exactly", "#1d2733").set_attr("font-weight", "700");
 scene.text(36.0, 70.0, 14.5, "Linear elasticity on a 12 x 12 mesh with the boundary moved by an affine stretch and shear", "#5a6672");
@@ -77,9 +76,8 @@ scene.text(620.0, 342.0, 13.0, ${err_txt}, "#007f86", 300.0).set_attr("font-weig
 scene.text(36.0, 540.0, 13.0, "Straight lines stay straight and parallel: every element carries the same constant strain, as the theory requires.", "#5a6672");
 scene.render_png("build/rendered/elastic_stretch.png", 960, 560, 1);
 end _lmcode_
-savedsl(d, "build/visual/elastic_stretch-draw.dslb");
-r = system ${dsl_cli(d)} --lmcode build/visual/elastic_stretch-draw.dslb;
-if (r.code != 0) { println(r.stdout); println(r.stderr); }
-assert(r.code == 0);
+r = run_lmcode(d);
+if (!r.ok) { println(json_stringify(r)); }
+assert(r.ok);
 copy_file("build/rendered/elastic_stretch.png", "images/elastic_stretch.png");
 println("wrote images/elastic_stretch.png");
