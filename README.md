@@ -2,6 +2,8 @@
 
 Finite elements (MFEM) and lattice-Boltzmann flow for lmscript: worked engineering problems with known answers, each drawn by lmplot, lmdraw or lmcad.
 
+Documentation: [lmctl.com/tools/lmfluid](https://www.lmctl.com/tools/lmfluid/) · [skill](https://www.lmctl.com/tools/lmfluid/skill.html) · [guide](https://www.lmctl.com/tools/lmfluid/guide.html) · [reference](https://www.lmctl.com/tools/lmfluid/reference.html)
+
 [![CI](https://github.com/lmctl-ai/lmfluid/actions/workflows/ci.yml/badge.svg)](https://github.com/lmctl-ai/lmfluid/actions/workflows/ci.yml)
 [![Latest release](https://img.shields.io/github/v/release/lmctl-ai/lmfluid?label=release)](https://github.com/lmctl-ai/lmfluid/releases)
 
